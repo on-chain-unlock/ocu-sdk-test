@@ -1,0 +1,69 @@
+# =============================================================================
+# OCU CoreSDK — .gitignore
+# =============================================================================
+
+# --- Configuration files (may contain real production values) ---
+# NEVER commit these — they may contain serial numbers, keys, RPC URLs
+test.cfg
+config.txt
+device.cfg
+
+# --- Injected binaries (contain real device config after inject_config.py) ---
+# Only the virgin binaries in bin/ should be committed
+*.orig
+bin/linux-arm64/libcoresdk_device_*.so
+bin/windows/coresdk_device_*.dll
+
+# --- Runtime data (generated at runtime on the device) ---
+*.enc
+access_log.txt
+user.pin
+route_locks.json
+device_label.txt
+*.tmp
+
+# --- Certificates (never commit private keys or CA bundles) ---
+*.pem
+*.crt
+*.key
+!example/certs/cacert.pem
+
+# --- CMake build output ---
+build/
+cmake-build-*/
+CMakeFiles/
+CMakeCache.txt
+Makefile
+*.cmake
+!CMakeLists.txt
+
+# --- Compiled output (not the distributed binaries in bin/) ---
+*.o
+*.a
+*.exe
+*.out
+
+# --- Python ---
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+venv/
+.venv/
+
+# --- IDE ---
+.vscode/
+.idea/
+*.user
+*.suo
+*.sln.docstates
+.vs/
+
+# --- OS ---
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# --- Logs ---
+*.log

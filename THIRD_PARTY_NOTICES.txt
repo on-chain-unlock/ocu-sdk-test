@@ -1,0 +1,142 @@
+THIRD-PARTY SOFTWARE NOTICES
+OCU CoreSDK — On-Chain Unlock
+═══════════════════════════════════════════════════════════════════════════════
+
+This product includes third-party software components listed below.
+Each component is subject to its own license terms as stated herein.
+
+───────────────────────────────────────────────────────────────────────────────
+1. Mbed TLS
+   https://github.com/Mbed-TLS/mbedtls
+   License: Apache License 2.0
+
+   Copyright The Mbed TLS Contributors
+
+   Licensed under the Apache License, Version 2.0 (the "License");
+   you may not use this file except in compliance with the License.
+   You may obtain a copy of the License at:
+   http://www.apache.org/licenses/LICENSE-2.0
+
+───────────────────────────────────────────────────────────────────────────────
+2. libsodium
+   https://github.com/jedisct1/libsodium
+   License: ISC License
+
+   Copyright (c) 2013-2024 Frank Denis <j at pureftpd dot org>
+
+   Permission to use, copy, modify, and/or distribute this software for any
+   purpose with or without fee is hereby granted, provided that the above
+   copyright notice and this permission notice appear in all copies.
+
+   THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
+   WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+   MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
+   ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+   WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
+   ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
+   OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+
+───────────────────────────────────────────────────────────────────────────────
+3. xxHash
+   https://github.com/Cyan4973/xxHash
+   License: BSD 2-Clause License
+
+   Copyright (c) 2012-2023 Yann Collet
+   All rights reserved.
+
+   Redistribution and use in source and binary forms, with or without
+   modification, are permitted provided that the following conditions are met:
+
+   * Redistributions of source code must retain the above copyright notice,
+     this list of conditions and the following disclaimer.
+   * Redistributions in binary form must reproduce the above copyright notice,
+     this list of conditions and the following disclaimer in the documentation
+     and/or other materials provided with the distribution.
+
+───────────────────────────────────────────────────────────────────────────────
+4. BLAKE2
+   https://github.com/BLAKE2/BLAKE2
+   License: Apache 2.0 / CC0 1.0 / OpenSSL (at user's choice)
+
+   Copyright (c) 2012 Samuel Neves, Jean-Philippe Aumasson,
+                      Christian Winnerlein, Zooko Wilcox-O'Hearn
+
+   The BLAKE2 reference source code package is dual-licensed under the
+   Creative Commons Zero (CC0) public domain dedication and the OpenSSL
+   license. You may use BLAKE2 under either license at your option.
+
+───────────────────────────────────────────────────────────────────────────────
+5. nlohmann/json
+   https://github.com/nlohmann/json
+   License: MIT License
+
+   Copyright (c) 2013-2024 Niels Lohmann
+
+   Permission is hereby granted, free of charge, to any person obtaining a
+   copy of this software and associated documentation files (the "Software"),
+   to deal in the Software without restriction, including without limitation
+   the rights to use, copy, modify, merge, publish, distribute, sublicense,
+   and/or sell copies of the Software, and to permit persons to whom the
+   Software is furnished to do so, subject to the following conditions:
+
+   The above copyright notice and this permission notice shall be included
+   in all copies or substantial portions of the Software.
+
+───────────────────────────────────────────────────────────────────────────────
+6. cpp-httplib
+   https://github.com/yhirose/cpp-httplib
+   License: MIT License
+
+   Copyright (c) 2017 yhirose
+
+   Permission is hereby granted, free of charge, to any person obtaining a
+   copy of this software and associated documentation files (the "Software"),
+   to deal in the Software without restriction, including without limitation
+   the rights to use, copy, modify, merge, publish, distribute, sublicense,
+   and/or sell copies of the Software, and to permit persons to whom the
+   Software is furnished to do so, subject to the following conditions:
+
+   The above copyright notice and this permission notice shall be included
+   in all copies or substantial portions of the Software.
+
+───────────────────────────────────────────────────────────────────────────────
+7. sp-core / schnorrkel (Rust)
+   https://github.com/paritytech/substrate
+   https://github.com/w3f/schnorrkel
+   License: Apache License 2.0 / MIT (dual license)
+
+   Copyright (c) Parity Technologies (UK) Ltd.
+   Copyright (c) 2019 Web3 Foundation
+
+   Licensed under the Apache License, Version 2.0 or the MIT License,
+   at your option.
+
+───────────────────────────────────────────────────────────────────────────────
+8. chacha20 (Rust crate)
+   https://github.com/RustCrypto/stream-ciphers
+   License: Apache License 2.0 / MIT (dual license)
+
+   Copyright (c) 2018-2024 RustCrypto Developers
+
+───────────────────────────────────────────────────────────────────────────────
+9. bip39 (Rust crate)
+   https://github.com/rust-bitcoin/rust-bip39
+   License: MIT License
+
+   Copyright (c) 2019 The rust-bip39 developers
+
+───────────────────────────────────────────────────────────────────────────────
+10. zeroize (Rust crate)
+    https://github.com/RustCrypto/utils
+    License: Apache License 2.0 / MIT (dual license)
+
+    Copyright (c) 2018-2024 RustCrypto Developers
+
+───────────────────────────────────────────────────────────────────────────────
+
+Full license texts are available at the URLs listed above.
+Apache License 2.0: https://www.apache.org/licenses/LICENSE-2.0
+MIT License: https://opensource.org/licenses/MIT
+ISC License: https://opensource.org/licenses/ISC
+
+───────────────────────────────────────────────────────────────────────────────

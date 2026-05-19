@@ -1,0 +1,18 @@
+# test.cfg — Configurazione di sviluppo per CoreSDK
+# ---------------------------------------------------
+# Usato automaticamente da Core_Init() quando i placeholder del binario
+# non sono stati iniettati (es. build locale in WSL).
+#
+# NON usare in produzione. NON committare con credenziali reali.
+# Aggiungere a .gitignore se contiene dati sensibili.
+#
+# Formato: key=value (no spazi attorno a =, no virgolette)
+
+#serial_number=
+#device_key=
+log_path=access_log.txt
+rpc_url=https://rpc.matrix.blockchain.enjin.io:443
+ca_bundle_path=certs/cacert.pem
+collection_id=3333
+token_id_override=001
+default_pin=123456

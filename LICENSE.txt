@@ -1,0 +1,261 @@
+OCU CORESDK PROPRIETARY LICENSE
+Version 1.0 — May 2026
+Copyright (c) 2026 On-Chain Unlock. All rights reserved.
+
+===============================================================================
+IMPORTANT — READ CAREFULLY BEFORE USING THIS SOFTWARE
+===============================================================================
+
+This End-User License Agreement ("Agreement") is a legal agreement between
+you (either an individual or a single entity, "Licensee") and On-Chain Unlock
+("Licensor") for the use of OCU CoreSDK, including all associated software,
+documentation, and files ("Software").
+
+By installing, copying, or otherwise using the Software, you agree to be
+bound by the terms of this Agreement. If you do not agree, do not install
+or use the Software.
+
+-------------------------------------------------------------------------------
+1. GRANT OF LICENSE
+-------------------------------------------------------------------------------
+
+Subject to the terms of this Agreement and payment of the applicable per-device
+license fee, Licensor grants Licensee a limited, non-exclusive, non-transferable,
+non-sublicensable license to:
+
+  (a) Use the compiled binary form of the Software (.so / .dll) on licensed
+      devices only.
+
+  (b) Integrate the Software into Licensee's own products or systems for
+      deployment in the Permitted Use Cases defined in Section 2.
+
+  (c) Distribute the Software in binary form only as part of a finished
+      product, provided that each deployed device carries a valid per-device
+      license.
+
+-------------------------------------------------------------------------------
+2. PERMITTED USE CASES
+-------------------------------------------------------------------------------
+
+The standard per-device license ($5 USD per device) permits use in:
+
+  - Residential access control (homes, apartments, small buildings)
+  - Small and medium-sized business (SMB) installations
+  - Small office environments
+  - Co-working spaces and boutique hospitality (under 50 access points)
+  - Single ATMs or isolated banking terminals (non-networked)
+  - Individual safes and storage units in residential or SMB contexts
+  - Single-site CCTV and surveillance systems
+  - Luxury automotive (individual vehicles)
+  - Any installation under 50 access points that does not require
+    safety certification (FIPS 140-2, PCI-DSS, or equivalent)
+
+The following use cases require a separate Enterprise License Agreement:
+
+  - ATM networks, banking infrastructure, or payment terminal chains
+  - Bank vaults, high-security safes, and critical asset storage
+  - Installations of 50+ access points or 200+ devices
+  - Multi-site chains (hospitality, retail, logistics)
+  - Government, military, or critical national infrastructure
+  - Any installation requiring FIPS 140-2, PCI-DSS, ISO 27001,
+    or equivalent certification
+  - Web-service infrastructure or SaaS platforms built on top of the SDK
+
+The trigger for Enterprise licensing is scale + criticality + certification
+requirements — not the industry sector per se. A single ATM in a small branch
+may qualify for standard licensing; a national ATM network requires Enterprise.
+
+-------------------------------------------------------------------------------
+3. RESTRICTIONS
+-------------------------------------------------------------------------------
+
+Licensee shall NOT:
+
+  (a) Reverse engineer, decompile, disassemble, or attempt to derive the
+      source code of the Software.
+
+  (b) Modify, adapt, translate, or create derivative works based on the
+      Software.
+
+  (c) Rent, lease, lend, sell, redistribute, or sublicense the Software
+      independently of a finished product.
+
+  (d) Remove or alter any proprietary notices, labels, or marks on the
+      Software.
+
+  (e) Use the Software in any use case listed under the Enterprise License
+      requirements in Section 2 without a valid Enterprise License Agreement.
+
+  (f) Use the Software for any unlawful purpose or in violation of applicable
+      laws and regulations.
+
+  (g) Export or re-export the Software to any country subject to embargo
+      or sanctions under EU Regulation 2021/821, EU Regulation 833/2014,
+      or any equivalent applicable law, including but not limited to:
+      Russia, Belarus, Iran, North Korea, Syria, Cuba, Myanmar, and Sudan.
+
+      The current list of EU restrictive measures is maintained at:
+      https://www.sanctionsmap.eu
+
+      Licensee represents and warrants that:
+        (i)   Licensee is not located in, incorporated in, or operating from
+              any country subject to EU restrictive measures;
+        (ii)  Licensee will not deploy, transfer, or make available the
+              Software in any such country;
+        (iii) Licensee is not listed on the EU Consolidated Sanctions List
+              or any equivalent sanctions list.
+
+      Licensee acknowledges that this representation is a material condition
+      of this Agreement and that any breach automatically terminates the
+      license granted herein.
+
+  (h) Use the Software as the sole access control mechanism on emergency
+      egress routes or fire safety exits.
+
+-------------------------------------------------------------------------------
+4. DATA RESPONSIBILITY AND AUDIT TRAIL
+-------------------------------------------------------------------------------
+
+The Software produces two distinct audit trails:
+
+  (a) ON-CHAIN AUDIT TRAIL: NFT ownership events (mint, transfer, revocation)
+      are recorded on Enjin Matrixchain and are public and immutable by nature
+      of the blockchain. This covers ownership changes only — not physical
+      access events.
+
+  (b) LOCAL ACCESS LOG: Physical access events (who entered, when, with which
+      role) are logged locally on the deployed device. This data does not
+      transit through Licensor's servers. Licensor does not collect, process,
+      or store any access log data.
+
+Licensee is solely responsible for compliance with all applicable data
+protection laws (including GDPR where applicable) with respect to the local
+access log and any personal data collected or processed through the use of
+the Software. Licensee shall implement appropriate data retention policies
+and inform end users of any data collection in accordance with applicable law.
+
+-------------------------------------------------------------------------------
+5. PER-DEVICE LICENSE FEE AND HARDWARE BINDING
+-------------------------------------------------------------------------------
+
+Each physical device on which the Software is deployed requires a valid
+per-device license. License fees are:
+
+  - Standard (Permitted Use Cases): $5 USD per device
+  - Enterprise: as negotiated under a separate Enterprise License Agreement
+
+Licenses are perpetual for the unique hardware configuration of the licensed
+device and are strictly non-transferable to other devices.
+
+The license is cryptographically bound to the hardware Serial Number.
+Flashing a new firmware that generates, modifies, or uses a different Serial
+Number terminates the validity of the active license and requires a new
+per-device license fee, unless the Licensee provides formal proof of hardware
+RMA or official component maintenance validated in writing by the Licensor.
+
+-------------------------------------------------------------------------------
+6. INTELLECTUAL PROPERTY
+-------------------------------------------------------------------------------
+
+The Software is proprietary and confidential. All title, ownership rights,
+and intellectual property rights in and to the Software remain exclusively
+with Licensor. This Agreement does not grant Licensee any rights to patents,
+copyrights, trade secrets, trademarks, or any other rights in respect to
+the Software, except as expressly set forth herein.
+
+-------------------------------------------------------------------------------
+7. SECURITY AUDIT PROVISION
+-------------------------------------------------------------------------------
+
+At its sole and absolute discretion, Licensor may elect to grant certain
+entities access to the Software source code for independent security audit
+purposes. This provision does not create any obligation or right for Licensee
+or any third party to demand or receive such access.
+
+Any such access, if granted, shall be exclusively governed by a separate
+bilateral Security Audit Agreement executed between Licensor and the
+designated auditing entity, which includes mutual non-disclosure obligations,
+a maximum of three named individuals with access, and strict restrictions on
+use of the reviewed material.
+
+Execution of a Security Audit Agreement does not grant any license rights
+beyond those explicitly stated therein.
+
+-------------------------------------------------------------------------------
+8. DISCLAIMER OF WARRANTIES
+-------------------------------------------------------------------------------
+
+THE SOFTWARE IS PROVIDED "AS IS" WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE, AND NON-INFRINGEMENT.
+
+LICENSOR DOES NOT WARRANT THAT THE SOFTWARE WILL MEET LICENSEE'S REQUIREMENTS
+OR THAT ITS OPERATION WILL BE UNINTERRUPTED OR ERROR-FREE.
+
+SAFETY-CRITICAL INSTALLATIONS: The Software controls entry access only.
+Emergency egress, fire safety compliance, and physical door hardware are
+entirely the responsibility of the Licensee and the installing party.
+The Software must never be used as the sole mechanism controlling emergency
+exit routes. All installations must comply with applicable local fire safety
+regulations, building codes, and access control standards. Licensor accepts
+no liability for installations that do not meet these requirements.
+
+-------------------------------------------------------------------------------
+9. LIMITATION OF LIABILITY
+-------------------------------------------------------------------------------
+
+IN NO EVENT SHALL LICENSOR BE LIABLE FOR ANY INDIRECT, INCIDENTAL, SPECIAL,
+EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING BUT NOT LIMITED TO LOSS OF
+DATA, LOSS OF PROFITS, OR BUSINESS INTERRUPTION) ARISING OUT OF OR IN
+CONNECTION WITH THE USE OR INABILITY TO USE THE SOFTWARE, EVEN IF LICENSOR
+HAS BEEN ADVISED OF THE POSSIBILITY OF SUCH DAMAGES.
+
+LICENSOR'S TOTAL LIABILITY SHALL NOT EXCEED THE LICENSE FEES PAID BY
+LICENSEE FOR THE SPECIFIC DEVICE(S) GIVING RISE TO THE CLAIM.
+
+-------------------------------------------------------------------------------
+10. TERMINATION
+-------------------------------------------------------------------------------
+
+This Agreement is effective until terminated. Licensor may terminate this
+Agreement immediately upon written notice if Licensee breaches any term
+herein. Upon termination, Licensee must cease all use of the Software and
+destroy all copies in its possession.
+
+-------------------------------------------------------------------------------
+11. GOVERNING LAW AND DISPUTE RESOLUTION
+-------------------------------------------------------------------------------
+
+This Agreement shall be governed by and construed in accordance with the laws
+of Spain, without regard to its conflict of law provisions.
+
+In the event of any dispute, controversy, or claim arising out of or relating
+to this Agreement, the parties shall first attempt to resolve the dispute
+amicably through formal management-level negotiations within thirty (30) days
+from written notice.
+
+If negotiations fail, and before resorting to arbitration, the parties agree
+to submit the dispute to mediation under the Spanish Mediation Act (Ley 5/2012).
+
+Any dispute that cannot be resolved through negotiation or mediation within
+sixty (60) days shall be finally settled by binding arbitration under the
+Rules of Arbitration of the International Chamber of Commerce (ICC) by one
+arbitrator appointed in accordance with said Rules. The seat of arbitration
+shall be Madrid, Spain. The language of arbitration shall be English.
+
+Nothing in this section shall prevent either party from seeking injunctive or
+other equitable relief from a court of competent jurisdiction to prevent
+irreparable harm pending arbitration.
+
+-------------------------------------------------------------------------------
+12. ENTIRE AGREEMENT
+-------------------------------------------------------------------------------
+
+This Agreement constitutes the entire agreement between the parties with
+respect to the Software and supersedes all prior or contemporaneous
+understandings, agreements, or representations.
+
+===============================================================================
+For licensing inquiries, enterprise agreements, or security audit requests:
+On-Chain Unlock — https://on-chain-unlock.net
+===============================================================================
