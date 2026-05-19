@@ -235,17 +235,18 @@ All fields except `address` are optional and independent. `valid_from`/`valid_to
 On embedded targets it is recommended to separate the program directory from the data directory. The program directory lives on firmware flash (effectively read-only at runtime), while the data directory lives on a separate writable partition (eMMC, SD, tmpfs).
 
 ```
-/firmware/                   ← program directory (firmware flash)
-    ocu_core                 ← CoreSDK executable / .so
-    pin_hash.bin             ← 32 bytes, fixed size, written once at first PIN set
+/firmware/                  ← program directory (firmware flash)
+    ocu_core                ← CoreSDK executable / .so
+    user.pin                ← PIN hash, written at first PIN change
+    route_locks.json        ← persists LOCKED routes across reboots
 
-/data/                       ← data directory (writable partition)
-    vault.enc                ← ~200 bytes fixed, admin address + token ID
-    whitelist.enc            ← grows with whitelist size
-    access_log.txt           ← grows over time
-    device_label.txt         ← 20 bytes max
+/data/                      ← data directory (writable partition)
+    vault.enc               ← ~200 bytes, admin address + token ID
+    whitelist.enc           ← grows with whitelist size
+    access_log.txt          ← grows over time, auto-rotated at 10MB
+    device_label.txt        ← 20 bytes max
     certs/
-        cacert.pem           ← CA bundle for HTTPS RPC
+        cacert.pem          ← CA bundle for HTTPS RPC
 ```
 
 **Why separate them:**
@@ -254,6 +255,11 @@ On embedded targets it is recommended to separate the program directory from the
 - Separating data makes factory reset trivial: wipe `/data/`, firmware is untouched
 - The PIN file stays on firmware flash — harder to tamper with than a data partition
 - Log rotation can be applied to `/data/` independently without touching the program
+
+> **Note:** `user.pin` and `route_locks.json` resolve relative to the executable.
+> The firmware partition must allow writes for these two files — this is the case
+> on most embedded boards (eMMC, SD). Read-only flash is rare outside certified
+> industrial deployments.
 
 **Configuration in `main_with_sdk.cpp`:**
 
