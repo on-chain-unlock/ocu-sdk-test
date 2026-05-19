@@ -144,14 +144,11 @@ per-device license. License fees are:
   - Standard (Permitted Use Cases): $5 USD per device
   - Enterprise: as negotiated under a separate Enterprise License Agreement
 
-Licenses are perpetual for the unique hardware configuration of the licensed
-device and are strictly non-transferable to other devices.
-
-The license is cryptographically bound to the hardware Serial Number.
-Flashing a new firmware that generates, modifies, or uses a different Serial
-Number terminates the validity of the active license and requires a new
-per-device license fee, unless the Licensee provides formal proof of hardware
-RMA or official component maintenance validated in writing by the Licensor.
+Licenses are perpetual and tied to a single device, identified by its Serial
+Number and device key. One license covers one device. Deploying the Software
+on a different device requires a new license.
+Licensor reserves the right to revoke a license in the event of detected
+abuse, license transfer attempts, or breach of this Agreement.
 
 -------------------------------------------------------------------------------
 6. INTELLECTUAL PROPERTY
