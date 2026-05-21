@@ -1,5 +1,23 @@
 # OCU CoreSDK — On-Chain Unlock
-**v1.2.0** — Blockchain-based physical access control
+**v1.2.1** — Blockchain-based physical access control
+
+### Changelog
+
+**v1.2.1**
+- `Core_Emergency`: emergency PIN now activates when EEPROM is missing (`token_id == 0`), regardless of server reachability. Previously it only activated when the server was unreachable.
+- NONE route: real role now detected (ADMIN/GUEST/NONE) — unknown addresses added to pending list only
+- `Core_GetAddress`: new — returns wallet address associated with a UUID session
+
+**v1.2.0**
+- `WhitelistEntry`: name, `valid_from`/`valid_to`, recurring schedule
+- NONE route: open access with wallet trace logging
+- `Core_RegisterRoute`: `allow_open` flag for runtime GUEST→NONE toggle
+- `Core_SetRouteMode`: timed open/lock with automatic revert
+- `Core_Admin_GetNftInfo`: token existence + owner lookup (no auth required)
+- `Core_Admin_GetDeviceLabel` / `SetDeviceLabel`: persistent device name
+- SID label encodes `deviceLabel|routeTitle` for wallet display
+- AES vault: random IV per write (from `/dev/urandom`)
+- Emergency PIN lockout capped at 240 min; reset by correct PIN or ADMIN auth
 
 ---
 
@@ -61,7 +79,7 @@ Three access roles:
 | `GUEST` | Addresses in whitelist | Yes |
 | `NONE` | Anyone with a wallet | No — trace only |
 
-The **NONE** route does not grant privileged access — it logs the wallet address on-chain and opens the relay for traceable public events (open house, etc.).
+The **NONE** route does not grant privileged access — it logs the wallet address and opens the relay for traceable public events (open house, etc.). ADMIN and GUEST addresses passing through a NONE route are recognized with their real role and are not added to the pending list.
 
 ---
 
@@ -141,7 +159,7 @@ Core_Shutdown();
 | `Core_RegisterRoute(pid, role, title, redirect, allow_open)` | Register an access point |
 | `Core_RegisterCommand(pid, pin, ms)` | Bind GPIO relay to a route |
 | `Core_GetRoutes()` | List all registered routes (for admin panel) |
-| `Core_SetRouteOpen(uuid, pid, open, valid_until)` | Toggle GUEST→NONE runtime (requires `allow_open=true`) |
+| `Core_SetRouteMode(uuid, pid, mode, valid_until)` | Change route access level at runtime: NORMAL / OPEN / LOCKED (requires `allow_open=true`) |
 
 ### Auth Flow
 
@@ -150,7 +168,7 @@ Core_Shutdown();
 | `Core_Start(pid, cookie_uuid)` | Begin session, returns SID + nonce |
 | `Core_GetSessionPayload(nonce)` | Retrieve SID for NFC/QR refresh |
 | `Core_Poll(pid, nonce)` | Check signature + NFT, fire relay if verified |
-| `Core_Emergency(nonce, pin, pid)` | Offline PIN access (server must be down) |
+| `Core_Emergency(nonce, pin, pid)` | Emergency PIN access — active when server is unreachable or EEPROM is missing |
 | `Core_Logout(uuid)` | Invalidate session |
 
 ### Administration (requires ADMIN session)
@@ -176,6 +194,7 @@ Core_Shutdown();
 |----------|-------------|
 | `Core_GetRole(uuid)` | Returns `CORE_ROLE_ADMIN/GUEST/NONE` |
 | `Core_CheckAccess(uuid, pid)` | Boolean role check against route requirement |
+| `Core_GetAddress(uuid)` | Returns wallet address associated with a UUID session |
 
 ### Diagnostics
 
@@ -188,7 +207,19 @@ Core_Shutdown();
 
 ---
 
-## Emergency PIN Lockout
+## Emergency Mode
+
+Emergency mode activates in two equivalent scenarios:
+- **Server unreachable** — gateway cannot be contacted
+- **EEPROM missing** — token ID is 0, on-chain verification impossible
+
+In both cases the behavior is identical:
+- GUEST routes → accessible with PIN only
+- ADMIN routes → not accessible
+- Whitelist → ignored
+- Route locks → ignored
+
+### PIN Lockout
 
 Lockout progression after 3 failed attempts:
 
@@ -225,8 +256,6 @@ The PIN is stored as `SHA256(pin + serial_number)` — unique per device, immune
 ```
 
 All fields except `address` are optional and independent. `valid_from`/`valid_to` are Unix timestamps (0 = no limit). `days`: 0=Sun … 6=Sat.
-
----
 
 ---
 
@@ -271,7 +300,7 @@ cfg.ca_bundle_path = "/firmware/certs/cacert.pem";
 Core_ConfigureStorage(&cfg);
 ```
 
-> The `pin_hash.bin` path is not configurable — it always resolves relative to the executable. This is intentional: keeping it in the firmware directory makes it as hard to tamper with as the binary itself.
+> `user.pin` and `route_locks.json` are not configurable — they always resolve relative to the executable. This is intentional: keeping them in the firmware directory makes them as hard to tamper with as the binary itself.
 
 ---
 
@@ -281,8 +310,8 @@ Core_ConfigureStorage(&cfg);
 - **Signature verification** uses sr25519 via `sp_core` (Substrate-compatible).
 - **Nonce** = `OCU_` + 8 hex bytes from `/dev/urandom` + 10 decimal timestamp digits. Expires in 120s.
 - **NFT check** uses `state_getStorage` (token existence) + `state_getKeys` (owner lookup) over HTTPS RPC.
-- **EEPROM hot-swap**: removing the EEPROM disables all access including admin. Re-insert + transfer NFT to recover.
-- **Removable EEPROM as hardware key**: if wallet is compromised, remove EEPROM → system locks immediately. Transfer NFT to new wallet → re-insert EEPROM → system operational.
+- **EEPROM hot-swap**: removing the EEPROM triggers emergency mode — admin authentication is disabled, whitelist is ignored, emergency PIN is the only access method. Re-insert the EEPROM to restore full operation.
+- **Removable EEPROM as hardware kill switch**: if a wallet is compromised, remove the EEPROM → admin access disabled immediately, PIN mode only → transfer NFT to a new wallet → re-insert EEPROM → system fully operational with the new owner.
 
 ---
 
@@ -370,7 +399,7 @@ Enterprise access control systems costing hundreds of thousands of euros cannot 
 
 ---
 
-
+## Provisioning Guide
 
 This is the end-to-end flow to bring a new device from factory to field.
 
@@ -486,7 +515,9 @@ The `/claim` route exists only during the provisioning window. Once the vault is
 
 > **Note:** this is a reference design, not a mandatory pattern. The producer server endpoint, the polling strategy, and the claim window duration are all implementation choices left to the integrator.
 
+---
 
+## Resources
 
 | Resource | URL |
 |----------|-----|
@@ -497,9 +528,9 @@ The `/claim` route exists only during the provisioning window. Once the vault is
 | FuelTank guide | https://docs.enjin.io/guides/platform/managing-users/using-fuel-tanks |
 | FuelTank pallet | https://docs.enjin.io/enjin-blockchain/enjin-matrixchain/fuel-tank-pallet |
 | Console explorer | https://console.enjin.io |
-| RPC endpoint | wss://rpc.matrix.blockchain.enjin.io |
+| RPC endpoint (firmware) | https://rpc.matrix.blockchain.enjin.io |
+| RPC endpoint (wallet) | wss://rpc.matrix.blockchain.enjin.io |
 | Canary testnet faucet | https://docs.enjin.io/getting-started/using-enjin-coin |
-
 
 ---
 

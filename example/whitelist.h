@@ -445,18 +445,34 @@ select option:checked{background:var(--indigo)}
 </div>
 
 <!-- MODAL: OPEN DOOR -->
-<div id="openDoorModal" class="modal-backdrop">
+<!-- MODAL: OPEN -->
+<div id="openModal" class="modal-backdrop">
   <div class="modal">
-    <h3 class="mono font-bold text-sm mb-1" style="color:#fff">Route Mode</h3>
-    <p id="openDoorPidLabel" class="mono text-micro text-dim mb-4"></p>
+    <h3 class="mono font-bold text-sm mb-1" style="color:var(--green)">Open Route</h3>
+    <p id="openModalPidLabel" class="mono text-micro text-dim mb-4"></p>
     <div class="space-y-3">
       <div>
         <label class="text-micro mono text-dim uppercase tracking mb-1" style="display:block">Auto-revert at <span class="text-faint">(leave empty = manual only)</span></label>
-        <input type="datetime-local" id="openDoorUntil">
+        <input type="datetime-local" id="openModalUntil">
       </div>
-      <button class="btn btn-full" onclick="executeRouteMode(null,1)" style="background:#22d3a8;color:#000;font-family:var(--mono);font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.12em;border-radius:var(--radius-sm);border:none;padding:12px;cursor:pointer">Open to Everyone</button>
-      <button class="btn btn-full" onclick="executeRouteMode(null,2)" style="background:rgba(244,63,94,.15);color:var(--red);border:1px solid rgba(244,63,94,.4);font-family:var(--mono);font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.12em;border-radius:var(--radius-sm);padding:12px;cursor:pointer">Lock — Admin Only</button>
-      <button class="btn btn-ghost btn-full" onclick="closeOpenDoorModal()">Cancel</button>
+      <button class="btn btn-full" onclick="executeRouteMode(null,1,'open')" style="background:#22d3a8;color:#000;font-family:var(--mono);font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.12em;border-radius:var(--radius-sm);border:none;padding:12px;cursor:pointer">Open to Everyone</button>
+      <button class="btn btn-ghost btn-full" onclick="closeRouteModeModal('open')">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: LOCK -->
+<div id="lockModal" class="modal-backdrop">
+  <div class="modal">
+    <h3 class="mono font-bold text-sm mb-1" style="color:var(--red)">Lock Route</h3>
+    <p id="lockModalPidLabel" class="mono text-micro text-dim mb-4"></p>
+    <div class="space-y-3">
+      <div>
+        <label class="text-micro mono text-dim uppercase tracking mb-1" style="display:block">Auto-revert at <span class="text-faint">(leave empty = manual only)</span></label>
+        <input type="datetime-local" id="lockModalUntil">
+      </div>
+      <button class="btn btn-full" onclick="executeRouteMode(null,2,'lock')" style="background:rgba(244,63,94,.15);color:var(--red);border:1px solid rgba(244,63,94,.4);font-family:var(--mono);font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.12em;border-radius:var(--radius-sm);padding:12px;cursor:pointer">Lock — Admin Only</button>
+      <button class="btn btn-ghost btn-full" onclick="closeRouteModeModal('lock')">Cancel</button>
     </div>
   </div>
 </div>
@@ -946,12 +962,12 @@ async function refreshRoutes() {
             </div>
             <div style="display:flex;gap:4px;margin-left:12px;flex-shrink:0">
                 ${canOpen ? `
-                <button onclick="promptOpenDoor('${rt.pid}','${rt.role}')"
+                <button onclick="promptOpenDoor('${rt.pid}',${rt.runtime_mode})"
                     style="background:none;border:1px solid ${isOpen ? "var(--red)" : "rgba(34,211,168,.4)"};border-radius:6px;padding:5px 8px;cursor:pointer;font-family:var(--mono);font-size:9px;color:${isOpen ? "var(--red)" : "var(--green)"};transition:all .12s"
                     onmouseover="this.style.opacity='.7'" onmouseout="this.style.opacity='1'">
                     ${isOpen ? "Close" : "Open"}
                 </button>
-                <button onclick="executeRouteMode('${rt.pid}', ${isLocked ? 0 : 2})"
+                <button onclick="${isLocked ? `executeRouteMode('${rt.pid}',0,null)` : `promptLockDoor('${rt.pid}',${rt.runtime_mode})`}"
                     style="background:none;border:1px solid ${isLocked ? "var(--amber)" : "rgba(244,63,94,.3)"};border-radius:6px;padding:5px 8px;cursor:pointer;font-family:var(--mono);font-size:9px;color:${isLocked ? "var(--amber)" : "var(--red)"};transition:all .12s"
                     onmouseover="this.style.opacity='.7'" onmouseout="this.style.opacity='1'">
                     ${isLocked ? "Unlock" : "Lock"}
@@ -959,32 +975,46 @@ async function refreshRoutes() {
             </div>`;
         container.appendChild(row);
     });
-    // Rimuovi bordo dall'ultima riga
     const rows = container.querySelectorAll("div[style*='border-bottom']");
     if (rows.length) rows[rows.length-1].style.borderBottom = "none";
 }
 
-function promptOpenDoor(pid, currentRole) {
-    if (currentRole === 'none' || currentRole === 'admin') {
-        // Already in a non-normal state — restore to NORMAL immediately
-        executeRouteMode(pid, 0);
+function promptOpenDoor(pid, currentMode) {
+    if (currentMode === 1) {
+        executeRouteMode(pid, 0, null);
         return;
     }
     openDoorPid = pid;
-    document.getElementById("openDoorPidLabel").textContent = "Route: /" + pid;
-    document.getElementById("openDoorUntil").value = "";
-    document.getElementById("openDoorModal").classList.add("open");
+    document.getElementById("openModalPidLabel").textContent = "Route: /" + pid;
+    document.getElementById("openModalUntil").value = "";
+    document.getElementById("openModal").classList.add("open");
 }
-function closeOpenDoorModal() {
-    document.getElementById("openDoorModal").classList.remove("open");
+
+function promptLockDoor(pid, currentMode) {
+    if (currentMode === 2) {
+        executeRouteMode(pid, 0, null);
+        return;
+    }
+    openDoorPid = pid;
+    document.getElementById("lockModalPidLabel").textContent = "Route: /" + pid;
+    document.getElementById("lockModalUntil").value = "";
+    document.getElementById("lockModal").classList.add("open");
+}
+
+function closeRouteModeModal(type) {
+    document.getElementById(type === "open" ? "openModal" : "lockModal").classList.remove("open");
     openDoorPid = "";
 }
-async function executeRouteMode(pid, mode, untilOverride) {
+
+async function executeRouteMode(pid, mode, modalType) {
     const pidTarget = pid || openDoorPid;
     if (!pidTarget) return;
-    const until = (untilOverride !== undefined) ? untilOverride
-        : (mode !== 0 ? fromDatetimeLocal(document.getElementById("openDoorUntil").value) : 0);
-    closeOpenDoorModal();
+    let until = 0;
+    if (mode !== 0 && modalType) {
+        const inputId = modalType === "open" ? "openModalUntil" : "lockModalUntil";
+        until = fromDatetimeLocal(document.getElementById(inputId).value);
+    }
+    if (modalType) closeRouteModeModal(modalType);
     const r = await apiFetch("/api/admin/route/mode","POST",{
         pid: pidTarget, mode, valid_until: until
     });
@@ -1171,6 +1201,8 @@ async function refreshAll() {
         renderActiveList(data.list || data || []);
     }
 
+    await refreshRoutes();
+
     document.getElementById("lastSync").textContent = "SYNC: " + new Date().toLocaleTimeString();
 }
 
@@ -1178,35 +1210,12 @@ async function refreshAll() {
 document.addEventListener("DOMContentLoaded", () => {
     loadDeviceName();
     refreshAll();
-    refreshRoutes();
     checkSecurityStatus();
-    setInterval(refreshAll, 5000);
     setInterval(() => {
+        refreshAll();
         const box = document.getElementById("logBox");
         if (box && box.style.display !== "none") loadLogs();
-    }, 30000);
-
-    // Controlla ogni 60s se una rotta aperta si è auto-chiusa
-    let prevRouteStates = {};
-    setInterval(async () => {
-        const r = await apiFetch("/api/admin/routes");
-        if (!r || !r.ok) return;
-        const d = await r.json();
-        let changed = false;
-        (d.routes || []).forEach(rt => {
-            const wasNonNormal = prevRouteStates[rt.pid] === "none" || prevRouteStates[rt.pid] === "admin_lock";
-            const isNowGuest   = rt.role === "guest";
-            const isNowLocked  = rt.allow_open && rt.role === "admin";
-            if (wasNonNormal && isNowGuest) {
-                showAlert("ROUTE_AUTO_RESTORED", `/${rt.pid} has been automatically restored to whitelist.`, "error");
-                changed = true;
-            }
-            prevRouteStates[rt.pid] = rt.role === "none" ? "none" :
-                                      isNowLocked         ? "admin_lock" : "guest";
-        });
-        // Aggiorna la div visiva se c'è stato un cambiamento
-        if (changed) refreshRoutes();
-    }, 60000);
+    }, 5000);
 });
 </script>
 </body>

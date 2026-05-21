@@ -1,5 +1,5 @@
 /**
- * CoreSDK.h  —  On-Chain Unlock · Core Library  v1.2.0
+ * CoreSDK.h  —  On-Chain Unlock · Core Library  v1.2.1
  * -------------------------------------------------------
  * Single public header. The integrator includes only this file.
  * All internals (Logic, Storage, SecureVault, Hardware, SessionManager)
@@ -36,6 +36,13 @@
  *   "ocu:[TT][22-char nonce][hex(deviceLabel|routeTitle)]"
  *   TT (2 hex): 00=GUEST 01=GUEST+redirect 02=ADMIN 03=ADMIN+redirect 04=NONE
  *   Same payload used for QR image, NFC NDEF record, and BLE advertisement.
+ *
+ * WHAT'S NEW IN v1.2.1:
+ *   - Core_Emergency: emergency PIN now activates when EEPROM is missing
+ *     (token_id == 0), regardless of server reachability
+ *   - ValidateAccess: NONE route now detects real role (ADMIN/GUEST/NONE),
+ *     adds unknown addresses to pending list only
+ *   - Core_GetAddress: returns wallet address associated with a UUID session
  *
  * WHAT'S NEW IN v1.2.0:
  *   - WhitelistEntry: name (max 20 chars), valid_from/valid_to, recurring schedule
@@ -121,11 +128,11 @@ typedef struct {
     const char* default_pin;       /* Factory PIN (will be hashed with SN)    */
 } CoreStorageConfig;
 
-/** Minimum access level required for a route. */
 typedef enum {
-    CORE_ROLE_NONE  = 0,
-    CORE_ROLE_GUEST = 1,   /* NFT holder OR in the whitelist */
-    CORE_ROLE_ADMIN = 2,   /* NFT token owner only */
+    CORE_ROLE_UNKNOWN = -1,  /* session absent, expired or not authenticated */
+    CORE_ROLE_NONE    =  0,  /* active NONE session (persistent with redirect) */
+    CORE_ROLE_GUEST   =  1,  /* NFT holder OR in the whitelist */
+    CORE_ROLE_ADMIN   =  2,  /* NFT token owner only */
 } CoreRole;
 
 
@@ -532,6 +539,11 @@ CoreRole Core_GetRole(const char* uuid);
  */
 bool Core_CheckAccess(const char* uuid, const char* pid);
 
+/**
+ * Core_GetAddress — returns the wallet address associated with a UUID session.
+ * Returns empty string if the session does not exist or is not authenticated.
+ */
+const char* Core_GetAddress(const char* uuid);
 
 /* =========================================================================
  * SECTION 7 — DIAGNOSTICS
