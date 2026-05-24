@@ -1,7 +1,13 @@
 # OCU CoreSDK — On-Chain Unlock
-**v1.2.1** — Blockchain-based physical access control
+**v1.2.2** — Blockchain-based physical access control
 
 ### Changelog
+
+**v1.2.2**
+- `Core_Poll`: log labels `ADMIN`/`GUEST` instead of `ADMIN_NFT`/`GUEST_NFT`
+- `Core_Poll`: rejection events logged — `invalid_signature`, `nft_rejected`, `guest_blocked_no_list`
+- `ValidateAccess`: whitelisted addresses no longer added to pending on ADMIN route rejection
+- `getAuthorizedSession`: log role reflects actual user role (`actualRole`), not minimum required by route
 
 **v1.2.1**
 - `Core_Emergency`: emergency PIN now activates when EEPROM is missing (`token_id == 0`), regardless of server reachability. Previously it only activated when the server was unreachable.
@@ -547,9 +553,9 @@ Physical access events — who entered, when, with which role — are logged loc
 **Access Log Format:**
 
 ```
-[2026-05-16 12:34:56] PID: relay | Addr: efXxxx...xYYY | Status: SUCCESS | TYPE: ADMIN_NFT
-[2026-05-16 12:35:10] PID: relay | Addr: efXxxx...xZZZ | Status: SUCCESS | TYPE: GUEST_NFT
+[2026-05-16 12:34:56] PID: relay | Addr: efXxxx...xYYY | Status: SUCCESS | TYPE: ADMIN
+[2026-05-16 12:35:10] PID: relay | Addr: efXxxx...xZZZ | Status: SUCCESS | TYPE: GUEST
 [2026-05-16 12:36:00] PID: relay | Addr: efXxxx...xWWW | Status: SUCCESS | TYPE: NONE_ACCESS
 ```
 
-Types: `ADMIN_NFT`, `GUEST_NFT`, `NONE_ACCESS`, `EMERGENCY_PIN`.
+Types: `ADMIN`, `GUEST`, `NONE_ACCESS`, `EMERGENCY_PIN`.

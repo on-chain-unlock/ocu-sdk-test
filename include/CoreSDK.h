@@ -1,5 +1,5 @@
 /**
- * CoreSDK.h  —  On-Chain Unlock · Core Library  v1.2.1
+ * CoreSDK.h  —  On-Chain Unlock · Core Library  v1.2.2
  * -------------------------------------------------------
  * Single public header. The integrator includes only this file.
  * All internals (Logic, Storage, SecureVault, Hardware, SessionManager)
@@ -36,6 +36,15 @@
  *   "ocu:[TT][22-char nonce][hex(deviceLabel|routeTitle)]"
  *   TT (2 hex): 00=GUEST 01=GUEST+redirect 02=ADMIN 03=ADMIN+redirect 04=NONE
  *   Same payload used for QR image, NFC NDEF record, and BLE advertisement.
+ *
+ * WHAT'S NEW IN v1.2.2:
+ *   - Core_Poll: log labels ADMIN/GUEST instead of ADMIN_NFT/GUEST_NFT
+ *   - Core_Poll: rejection events logged (invalid_signature,
+ *     nft_rejected, guest_blocked_no_list)
+ *   - ValidateAccess: whitelisted addresses no longer added to pending
+ *     on ADMIN route rejection
+ *   - getAuthorizedSession: log role reflects actual user role
+ *     (actualRole) not minimum required by route
  *
  * WHAT'S NEW IN v1.2.1:
  *   - Core_Emergency: emergency PIN now activates when EEPROM is missing
