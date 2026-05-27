@@ -515,8 +515,9 @@ When the device hits `POST /provision` with `{ serial, collection_id, token_id, 
 
 ```
                         [ POST /provision ]
+                        { serial, token_id, owner_address }
                                  │
-                    Server queries NftInfo state
+                    Server queries on-chain state via RPC
                                  │
        ┌─────────────────────────┼─────────────────────────┐
        ▼                         ▼                         ▼
