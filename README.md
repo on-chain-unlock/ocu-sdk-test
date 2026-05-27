@@ -97,8 +97,10 @@ The SID is the universal authentication payload — the same bytes go into QR, N
 ocu:[TT][NNNNNNNNNNNNNNNNNNNNNN][LLLLLL...]
      ^^  ^^^^^^^^^^^^^^^^^^^^^^  ^^^^^^^^^^^
      |   22-char nonce           hex(deviceLabel|routeTitle)
-     |   (includes timestamp     split on pipe '|'
-     |    in last 10 digits)
+     |   OCU_ + 8 hex (random)   split on pipe '|'
+     |   + 10 decimal digits
+     |   (Unix epoch in tenths
+     |    of second % 10^10)
      |
      2-hex type byte:
        00 = GUEST  non-persistent
@@ -109,6 +111,8 @@ ocu:[TT][NNNNNNNNNNNNNNNNNNNNNN][LLLLLL...]
 ```
 
 The wallet parses `substring(4,6)` for type, `substring(6,28)` for nonce, `substring(28)` decoded as UTF-8 and split on `|` for device label and route title.
+
+The 10 timestamp digits are `(milliseconds / 100) % 10^10` — tenths of a second, modulo-wrapped to 10 digits. The wallet uses this value to compute the session countdown without any server communication. The modulo wraps every ~31 years.
 
 ---
 
@@ -241,8 +245,6 @@ The counter is reset by:
 - A correct emergency PIN entry
 - A successful **ADMIN blockchain authentication**
 
-The lockout survives reboots (stored on disk).
-
 The PIN is stored as `SHA256(pin + serial_number)` — unique per device, immune to rainbow tables.
 
 ---
@@ -314,7 +316,7 @@ Core_ConfigureStorage(&cfg);
 
 - **No plaintext keys on disk.** Vault is AES-256-CBC with random IV per write.
 - **Signature verification** uses sr25519 via `sp_core` (Substrate-compatible).
-- **Nonce** = `OCU_` + 8 hex bytes from `/dev/urandom` + 10 decimal timestamp digits. Expires in 120s.
+- **Nonce** = `OCU_` + 8 hex bytes from `/dev/urandom` + 10 decimal digits (Unix epoch in tenths of second, modulo 10^10). Session expires in 120s.
 - **NFT check** uses `state_getStorage` (token existence) + `state_getKeys` (owner lookup) over HTTPS RPC.
 - **EEPROM hot-swap**: removing the EEPROM triggers emergency mode — admin authentication is disabled, whitelist is ignored, emergency PIN is the only access method. Re-insert the EEPROM to restore full operation.
 - **Removable EEPROM as hardware kill switch**: if a wallet is compromised, remove the EEPROM → admin access disabled immediately, PIN mode only → transfer NFT to a new wallet → re-insert EEPROM → system fully operational with the new owner.
@@ -494,17 +496,62 @@ Device (first boot, no vault)
   │   Customer opens wallet app, scans /claim QR
   │   Signs nonce → Core_Poll() logs address (NONE_ACCESS)
   │
-  ├─ reads address from log
+  ├─ calls Core_GetAddress(uuid) → owner_address
   ├─ calls producer server: POST /provision
   │     { serial, collection_id, token_id, owner_address }
   │
-  │   Producer server (Wallet Daemon)
-  │   └─ mints token → transfers to owner_address
+  │   Producer server queries Core_Admin_GetNftInfo()
+  │   └─ three-way decision (see below)
   │
-  ├─ polls Core_Admin_GetNftInfo() until minted == true
+  ├─ firmware polls Core_Admin_GetNftInfo() until owner settled
   ├─ vault is written (Core now has an ADMIN)
   └─ /claim route removed — provisioning complete
 ```
+
+#### Server-Side Decision Logic
+
+When the device hits `POST /provision`, the producer's server queries `Core_Admin_GetNftInfo()` to resolve the current on-chain state before acting. The result follows a three-way decision tree:
+
+```
+                        [ POST /provision ]
+                                 │
+                    Server queries NftInfo state
+                                 │
+       ┌─────────────────────────┼─────────────────────────┐
+       ▼                         ▼                         ▼
+  [ STATE A ]               [ STATE B ]               [ STATE C ]
+ Not Yet Minted         Owned by Manufacturer      Already Claimed
+       │                         │                         │
+ MINT to User            TRANSFER to User          REJECT (409)
+       │                         │                         │
+       ▼                         ▼                         ▼
+ HTTP 201 Created           HTTP 200 OK            HTTP 409 Conflict
+```
+
+**State A — Not yet minted**
+The token does not exist on-chain. The server mints directly to `owner_address`.
+```json
+{ "status": "minting_initiated", "tx_hash": "0x..." }
+```
+
+**State B — Pre-minted, held by manufacturer**
+The NFT exists but is still in the manufacturer's treasury wallet (warehouse or retail stock). The server transfers it directly to `owner_address`.
+```json
+{ "status": "transfer_initiated", "tx_hash": "0x..." }
+```
+
+**State C — Already owned by a third party**
+The NFT is owned by a wallet that is neither the manufacturer nor the claiming user. This indicates the device is already provisioned or an attacker is attempting a replay. The server rejects immediately.
+```json
+{ "error": "DEVICE_ALREADY_CLAIMED", "message": "This hardware token has already been provisioned to another wallet." }
+```
+
+#### Firmware Reaction Matrix
+
+While the server processes States A or B, the firmware handles the HTTP responses as follows:
+
+- **On HTTP 409/403 (State C):** The firmware aborts the sequence, purges the temporary `/claim` session, triggers a local hardware error state, and keeps the device unprovisioned.
+- **On HTTP 200/201 (States A or B):** The firmware enters a secure polling loop using `Core_Admin_GetNftInfo()`. Once NFT ownership has settled on-chain to `owner_address`, it writes the vault (Admin Active) and permanently removes the `/claim` route.
 
 **Implementation sketch in `main_with_sdk.cpp`:**
 
@@ -513,13 +560,15 @@ Device (first boot, no vault)
 if (!Core_Init()) {
     Core_RegisterRoute("claim", CORE_ROLE_NONE, "CLAIM DEVICE", nullptr, false);
     // ... start server, wait for NONE_ACCESS log entry ...
-    // ... send address to producer, poll GetNftInfo, then restart ...
+    // ... POST /provision to producer server ...
+    // ... on 409: abort and signal error ...
+    // ... on 200/201: poll GetNftInfo until minted == true, then write vault and restart ...
 }
 ```
 
 The `/claim` route exists only during the provisioning window. Once the vault is written and the NFT is on-chain, the device reboots into normal operation with ADMIN authentication active. The route is never registered again.
 
-> **Note:** this is a reference design, not a mandatory pattern. The producer server endpoint, the polling strategy, and the claim window duration are all implementation choices left to the integrator.
+> **Note:** this is a reference design, not a mandatory pattern. The producer server endpoint, the polling strategy, the claim window duration, and the hardware error signaling are all implementation choices left to the integrator.
 
 ---
 
