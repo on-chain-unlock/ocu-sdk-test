@@ -452,25 +452,15 @@ Mint one token per device using the Wallet Daemon. The daemon signs and broadcas
 
 The daemon wallet holds the producer's key and signs mint + transfer transactions. Keep the seed phrase secure.
 
-### 4. Verify Before Shipping
+### 4. Configure the Provisioning Server
 
-Before shipping the kit, call `GET /api/admin/nft/info` on the device:
+Set up the producer's provisioning endpoint (`POST /provision`) backed by the Wallet Daemon. The server receives `{ serial, collection_id, token_id, owner_address }` from the device, queries the on-chain state independently via RPC, and mints or transfers the NFT accordingly (see Zero-Touch Provisioning below).
 
-```json
-{
-  "status":        "ok",
-  "token_id":      999,
-  "collection_id": 3333,
-  "minted":        true,
-  "owner_address": "efXxxx...xxxYYYY"
-}
-```
-
-`minted: true` + `owner_address` present = token exists on-chain and is assigned. The device is ready to ship. If `minted: false` the mint transaction is still pending.
+How the device authenticates the provisioning request is an implementation choice left to the producer — serial+key, a shared secret, a one-time token, or any other mechanism that fits the deployment model. The Core does not enforce a specific authentication scheme for this step.
 
 ### 5. Customer Receives Kit
 
-The customer installs the OCU Wallet app, imports or generates a wallet, and receives the NFT transfer from the producer. From this moment `Core_Poll()` will verify their wallet as ADMIN.
+The customer installs the OCU Wallet app and generates or imports a wallet. On first boot the device registers a temporary `/claim` route, the customer scans the QR, and the provisioning server handles the rest automatically. From the moment NFT ownership settles on-chain, `Core_Poll()` will verify their wallet as ADMIN and the `/claim` route is permanently removed.
 
 ### 6. FuelTank (optional — subsidize transfer fees)
 
