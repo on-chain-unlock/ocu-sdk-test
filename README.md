@@ -500,7 +500,8 @@ Device (first boot, no vault)
   ├─ calls producer server: POST /provision
   │     { serial, collection_id, token_id, owner_address }
   │
-  │   Producer server queries Core_Admin_GetNftInfo()
+  │   Producer server (Wallet Daemon)
+  │   └─ queries on-chain state independently via RPC
   │   └─ three-way decision (see below)
   │
   ├─ firmware polls Core_Admin_GetNftInfo() until owner settled
@@ -510,7 +511,7 @@ Device (first boot, no vault)
 
 #### Server-Side Decision Logic
 
-When the device hits `POST /provision`, the producer's server queries `Core_Admin_GetNftInfo()` to resolve the current on-chain state before acting. The result follows a three-way decision tree:
+When the device hits `POST /provision` with `{ serial, collection_id, token_id, owner_address }`, the producer's server independently queries the on-chain state via its own RPC connection before acting — it does not trust the device's reported state. This independent verification is what makes the three-way decision trustless:
 
 ```
                         [ POST /provision ]
