@@ -360,7 +360,7 @@ Neither layer alone is sufficient. The pre-Core layer proves physical presence o
 
 The room PIN or secondary factor distribution is entirely the integrator's responsibility — the Core has no knowledge of it.
 
-> **Note on additional security layers:** CoreSDK is a cryptographic gate, not a complete access control policy. It does not prevent integrators from adding further authentication layers before or after Core verification. For installations where a silently compromised wallet must not automatically grant physical access, a pre-Core factor requiring physical interaction on the device — such as a PIN entered directly on the hardware keypad — is recommended. Since this factor never transits the smartphone, it cannot be extracted by remote compromise of the wallet. CoreSDK's security guarantees apply to the cryptographic layer only; physical presence factors are the integrator's responsibility and complement, not replace, the Core's guarantees.
+> **Note on additional security layers:** CoreSDK can be used as a standalone access control layer and provides strong cryptographic guarantees by design. However, for installations where a silently compromised wallet must not automatically grant physical access, the use of an additional pre-Core factor is recommended. A PIN or interaction required directly on the device hardware — never transiting the smartphone — ensures that wallet compromise alone is not sufficient to gain access. Since this factor exists only on the physical device, it cannot be extracted remotely. CoreSDK does not prevent integrators from adding such layers before `Core_Start()` is called; the cryptographic guarantees of the Core are unaffected and remain the final gate regardless of what precedes them.
 
 ---
 
