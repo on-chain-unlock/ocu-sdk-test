@@ -325,28 +325,42 @@ Core_ConfigureStorage(&cfg);
 
 ## Multi-Zone Offline Access (integrator pattern)
 
-When the server is offline, Core falls back to PIN mode — a single generic PIN for the device. For installations requiring room-level access control offline, an integrator can implement a second authentication layer inside the route action:
+When the server is offline, Core falls back to PIN mode — a single generic PIN for the device. For installations requiring room-level access control offline, an integrator can implement a second authentication layer.
 
-```
-[offline]
+The correct architecture is to register the OCU route **without** a hardware command, and bind the relay to the second layer only after Core has verified the identity:
 
-Step 1 — Core PIN (generic)
-    Core_Poll() → verified (PIN correct)
-    └─ proves: user knows the device PIN
+```cpp
+// OCU route — identity verification only, no GPIO bound
+Core_RegisterRoute("auth", CORE_ROLE_GUEST, "AUTH", nullptr, false);
+// No Core_RegisterCommand() on this route
 
-Step 2 — Room PIN (granular, integrator-managed)
-    Integrator intercepts verified state
-    Redirects to internal keypad / secondary auth
-    └─ proves: user knows the specific room secret
-
-Only if both pass → relay fires
+// Relay is controlled by the integrator layer
+// only after Core has verified the wallet signature
+if (Core_CheckAccess(uuid, "auth"))
+    integrator_fire_relay(); // second factor check here
 ```
 
-The Core always acts as the first gate — the second layer is only reachable after Core has already verified the user. Neither layer alone is sufficient.
+This way the relay never fires on Core verification alone — it requires both layers to pass:
 
-The room PIN distribution is entirely the integrator's responsibility — the Core has no knowledge of it. Security depends on keeping the two secrets separate and distributing them only to the appropriate people.
+```
+Step 1 — Pre-Core layer (integrator-managed)
+    Physical keypad, badge reader, biometric — any mechanism
+    └── if passes → calls Core_Start()
 
-This pattern requires no Core modifications — it is implemented entirely in the route action injected via `Core_RegisterCommand`.
+Step 2 — Core OCU (cryptographic gate)
+    sr25519 signature + NFT ownership check
+    └── if passes → Core_CheckAccess() returns true
+
+Step 3 — Relay
+    Only fires if both Step 1 and Step 2 passed
+    └── implementator_fire_relay()
+```
+
+Neither layer alone is sufficient. The pre-Core layer proves physical presence or knowledge. The Core layer proves cryptographic ownership.
+
+The room PIN or secondary factor distribution is entirely the integrator's responsibility — the Core has no knowledge of it.
+
+> **Note on additional security layers:** CoreSDK is a cryptographic gate, not a complete access control policy. It does not prevent integrators from adding further authentication layers before or after Core verification. For installations where a silently compromised wallet must not automatically grant physical access, a pre-Core factor requiring physical interaction on the device — such as a PIN entered directly on the hardware keypad — is recommended. Since this factor never transits the smartphone, it cannot be extracted by remote compromise of the wallet. CoreSDK's security guarantees apply to the cryptographic layer only; physical presence factors are the integrator's responsibility and complement, not replace, the Core's guarantees.
 
 ---
 
