@@ -360,7 +360,18 @@ Neither layer alone is sufficient. The pre-Core layer proves physical presence o
 
 The room PIN or secondary factor distribution is entirely the integrator's responsibility — the Core has no knowledge of it.
 
-> **Note on wallet security and additional layers:** CoreSDK can be used as a standalone access control layer and provides strong cryptographic guarantees by design. The wallet employs Argon2id key derivation and libsodium encryption, making private key extraction non-trivial under normal conditions. However, a device compromised by malicious software may expose the private key during signing or backup operations — enabling an attacker to sign from any device silently and indefinitely. Device hygiene is therefore a critical component of the overall security posture. For installations where this risk must be mitigated architecturally, the use of an additional pre-Core factor is recommended: a PIN or physical interaction required directly on the OCU hardware — never transiting the smartphone — ensures that wallet compromise alone is not sufficient to gain access. Since this factor exists only on the physical device, it cannot be extracted remotely. CoreSDK does not prevent integrators from adding such layers before `Core_Start()` is called; the cryptographic guarantees of the Core remain the final gate regardless of what precedes them.
+> **Note on wallet security and additional layers:** CoreSDK can be used as a standalone access control layer and provides strong cryptographic guarantees by design.
+>
+> OCU KeyStore (the wallet) employs Argon2id key derivation and libsodium encryption to protect private keys. Extracting them from a correctly configured smartphone is non-trivial under normal conditions. However, if the smartphone running the wallet is compromised by malicious software, the following risks apply regardless of the wallet's own protections:
+>
+> - **During signing** — malware with sufficient privileges could intercept the private key in memory at the moment of use
+> - **During seed phrase backup** — the mnemonic is necessarily available in memory when displayed; malware with sufficient privileges could access it at this moment
+>
+> A compromised smartphone may therefore expose the private key itself — enabling an attacker to sign from any device silently and indefinitely. Smartphone hygiene is a critical component of the overall security posture, not an optional consideration.
+>
+> For installations where this risk must be mitigated architecturally, two complementary approaches are recommended. The first is the use of an additional pre-Core factor: a PIN or physical interaction required directly on the device running CoreSDK — never transiting the smartphone — ensures that wallet compromise alone is not sufficient to gain access. Since this factor exists only on the CoreSDK device, it cannot be extracted remotely. The second is dedicating a clean smartphone used almost exclusively for OCU authentication, minimising the attack surface exposed to third-party applications and reducing the risk of silent compromise.
+>
+> CoreSDK does not prevent integrators from adding such layers before `Core_Start()` is called; the cryptographic guarantees of the Core remain the final gate regardless of what precedes them.
 
 ---
 
