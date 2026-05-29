@@ -36,11 +36,11 @@ LIMITS:
   - Only ASCII strings are supported (no multibyte UTF-8 in values).
 
 RECOGNIZED PLACEHOLDERS:
-  @@SERIAL_NUMBER@@  → serial_number  (max 64 bytes)
-  @@DEVICE_KEY@@     → device_key     (max 128 bytes)
-  @@RPC_URL@@        → rpc_url        (max 128 bytes)
-  @@COLLECTION_ID@@  → collection_id  (uint32 as decimal string, max 32 bytes)
-  @@DEFAULT_PIN@@    → default_pin    (factory PIN, max 32 bytes)
+  @@SERIAL_NUMBER@@@...  → serial_number  (max 64 bytes)
+  @@DEVICE_KEY@@@@...    → device_key     (max 128 bytes)
+  @@RPC_URL@@@@@...      → rpc_url        (max 128 bytes)
+  @@DEFAULT_PIN@@@...    → default_pin    (factory PIN, max 32 bytes)
+  @@COLLECTION_ID@@...   → collection_id  (uint32 as decimal string, max 32 bytes)
 
 """
 
@@ -54,11 +54,11 @@ import shutil
 # Placeholder → argument key mapping
 # ---------------------------------------------------------------------------
 PLACEHOLDERS = {
-    b"@@SERIAL_NUMBER@@":  "serial_number",
-    b"@@DEVICE_KEY@@":     "device_key",
-    b"@@RPC_URL@@":        "rpc_url",
-    b"@@COLLECTION_ID@@":  "collection_id",
-    b"@@DEFAULT_PIN@@":    "default_pin",
+    b"@@SERIAL_NUMBER@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@":     "serial_number",
+    b"@@DEVICE_KEY@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@": "device_key",
+    b"@@RPC_URL@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@":    "rpc_url",
+    b"@@DEFAULT_PIN@@@@@@@@@@@@@@@@@":                                        "default_pin",
+    b"@@COLLECTION_ID@@@@@@@@@@@@@@@@":                                       "collection_id",
 }
 
 

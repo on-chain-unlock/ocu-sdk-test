@@ -1,13 +1,13 @@
 OCU CORESDK PROPRIETARY LICENSE
 Version 1.0 — May 2026
-Copyright (c) 2026 On-Chain Unlock. All rights reserved.
+Copyright (c) 2026 On-Chain-Unlock. All rights reserved.
 
 ===============================================================================
 IMPORTANT — READ CAREFULLY BEFORE USING THIS SOFTWARE
 ===============================================================================
 
 This End-User License Agreement ("Agreement") is a legal agreement between
-you (either an individual or a single entity, "Licensee") and On-Chain Unlock
+you (either an individual or a single entity, "Licensee") and On-Chain-Unlock
 ("Licensor") for the use of OCU CoreSDK, including all associated software,
 documentation, and files ("Software").
 
@@ -23,7 +23,7 @@ Subject to the terms of this Agreement and payment of the applicable per-device
 license fee, Licensor grants Licensee a limited, non-exclusive, non-transferable,
 non-sublicensable license to:
 
-  (a) Use the compiled binary form of the Software (.so / .dll) on licensed
+  (a) Use the compiled binary form of the Software (.so) on licensed
       devices only.
 
   (b) Integrate the Software into Licensee's own products or systems for
@@ -254,5 +254,5 @@ understandings, agreements, or representations.
 
 ===============================================================================
 For licensing inquiries, enterprise agreements, or security audit requests:
-On-Chain Unlock — https://on-chain-unlock.net
+On-Chain-Unlock — https://on-chain-unlock.net
 ===============================================================================
