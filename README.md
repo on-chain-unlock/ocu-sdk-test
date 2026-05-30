@@ -2,7 +2,9 @@
 **v1.2.2** — Blockchain-based physical access control
 
 ### Changelog
-
+**v1.2.3**
+- `StartSession`: EEPROM check (`tokenId==0`) moved before the server call — returns `eeprom_missing` + emergency flag without contacting the gateway
+- `PollSession`: EEPROM check now takes priority over server status, so a missing EEPROM is detected even when the server is online
 **v1.2.2**
 - `Core_Poll`: log labels `ADMIN`/`GUEST` instead of `ADMIN_NFT`/`GUEST_NFT`
 - `Core_Poll`: rejection events logged — `invalid_signature`, `nft_rejected`, `guest_blocked_no_list`
@@ -477,9 +479,9 @@ Mint one token per device using the Wallet Daemon. The daemon signs and broadcas
 
 The daemon wallet holds the producer's key and signs mint + transfer transactions. Keep the seed phrase secure.
 
-### 4. Configure the Claim Server
+### 4. Configure the Provisioning Server
 
-Set up the producer's provisioning endpoint (`POST /provision`) backed by the Wallet Daemon. The server receives `{ serial, collection_id, token_id, owner_address }` from the device, queries the on-chain state independently via RPC, and mints or transfers the NFT accordingly (see Zero-Touch Claim below).
+Set up the producer's provisioning endpoint (`POST /provision`) backed by the Wallet Daemon. The server receives `{ serial, collection_id, token_id, owner_address }` from the device, queries the on-chain state independently via RPC, and mints or transfers the NFT accordingly (see Zero-Touch Provisioning below).
 
 How the device authenticates the provisioning request is an implementation choice left to the producer — serial+key, a shared secret, a one-time token, or any other mechanism that fits the deployment model. The Core does not enforce a specific authentication scheme for this step.
 
@@ -487,65 +489,105 @@ How the device authenticates the provisioning request is an implementation choic
 
 The customer installs the OCU Wallet app and generates or imports a wallet. On first boot the device registers a temporary `/claim` route, the customer scans the QR, and the provisioning server handles the rest automatically. From the moment NFT ownership settles on-chain, `Core_Poll()` will verify their wallet as ADMIN and the `/claim` route is permanently removed.
 
-### 6. FuelTank (optional — subsidize customer transfer fees)
+### 6. FuelTank (optional — subsidize transfer fees)
 
-If the vendor transfers the NFT to the customer's wallet and wants to cover the ENJ transaction fees on the customer's behalf, a FuelTank can be set up with a `WhitelistedCollections` rule for the collection ID. This is relevant only if the customer needs to subsequently transfer the NFT themselves (e.g. resale or wallet migration) — the initial mint and transfer executed by the Wallet Daemon use the vendor's own ENJ and require no FuelTank.
+To cover ENJ transaction fees for the customer during token transfer, set up a FuelTank with a `WhitelistedCollections` rule for your collection ID. This way the producer pays the fees and the customer receives the NFT without needing ENJ.
 
 - **FuelTank guide:** [Using Fuel Tanks](https://docs.enjin.io/guides/platform/managing-users/using-fuel-tanks)
 - **FuelTank pallet:** [Fuel Tank Pallet](https://docs.enjin.io/enjin-blockchain/enjin-matrixchain/fuel-tank-pallet)
 - **Require Token rule:** subsidize only if the user holds a specific NFT — useful for future feature unlocks
 
-### Zero-Touch Claim (example pattern)
+### Zero-Touch Provisioning (example flow)
 
-This is a reference claim pattern using CoreSDK primitives. The NONE route shown here does not exist in the Core — it is one possible way to capture the customer's wallet address automatically during first boot.
+This is one possible fully automated provisioning flow that requires no out-of-band communication between producer and customer. Each integrator can implement their own variant.
 
-The vendor can choose between two hardware distribution models:
-
-- **Mint-on-claim** — NFT does not exist yet, vendor mints directly to the customer wallet after claim
-- **Pre-minted** — NFT already exists and is held by the vendor's minting wallet; vendor transfers it to the customer wallet after claim
-
-In both cases the device uses `Core_Admin_GetNftInfo()` at boot to detect its current state. The vendor's own minting wallet address is known only to the vendor server — the device simply checks whether `owner_address` matches the customer wallet to know when the claim is complete.
+The key insight is that a `CORE_ROLE_NONE` route logs the signing wallet address even without an NFT — it just lets anyone in and records who signed. This can be used to capture the future admin's address automatically.
 
 **Flow:**
 
 ```
-Device boots — Core_Admin_GetNftInfo()
+Device (first boot, no vault)
   │
-  ├─ minted = false
-  │     → NFT not yet created, register NONE route, wait for customer
+  ├─ registers temporary NONE route: /claim
   │
-  ├─ minted = true, owner = vendor minting wallet
-  │     → NFT pre-minted and held by vendor, register NONE route, wait for customer
+  │   Customer opens wallet app, scans /claim QR
+  │   Signs nonce → Core_Poll() logs address (NONE_ACCESS)
   │
-  └─ minted = true, owner = customer wallet
-        → already claimed, boot normally (ADMIN auth creates vault on first login)
-
-  Customer unpacks hardware, opens OCU Wallet, scans QR
-  Signs nonce → Core_Poll() logs address (NONE_ACCESS)
-
-  Device reads Core_GetAddress(uuid) → customer wallet address
-  Device sends customer address + GetNftInfo data to vendor claim server
-  Vendor server mints or transfers NFT to customer wallet
-
-  Device polls Core_Admin_GetNftInfo() until owner_address == customer wallet
-  └─ customer authenticates as ADMIN → vault written automatically
-     NONE route removed — claim complete, device operational
+  ├─ calls Core_GetAddress(uuid) → owner_address
+  ├─ calls producer server: POST /provision
+  │     { serial, collection_id, token_id, owner_address }
+  │
+  │   Producer server (Wallet Daemon)
+  │   └─ queries on-chain state independently via RPC
+  │   └─ three-way decision (see below)
+  │
+  ├─ firmware polls Core_Admin_GetNftInfo() until owner settled
+  ├─ vault is written (Core now has an ADMIN)
+  └─ /claim route removed — provisioning complete
 ```
 
-**Implementation sketch:**
+#### Server-Side Decision Logic
+
+When the device hits `POST /provision` with `{ serial, collection_id, token_id, owner_address }`, the producer's server independently queries the on-chain state via its own RPC connection before acting — it does not trust the device's reported state. This independent verification is what makes the three-way decision trustless:
+
+```
+                        [ POST /provision ]
+                        { serial, token_id, owner_address }
+                                 │
+                    Server queries on-chain state via RPC
+                                 │
+       ┌─────────────────────────┼─────────────────────────┐
+       ▼                         ▼                         ▼
+  [ STATE A ]               [ STATE B ]               [ STATE C ]
+ Not Yet Minted         Owned by Manufacturer      Already Claimed
+       │                         │                         │
+ MINT to User            TRANSFER to User          REJECT (409)
+       │                         │                         │
+       ▼                         ▼                         ▼
+ HTTP 201 Created           HTTP 200 OK            HTTP 409 Conflict
+```
+
+**State A — Not yet minted**
+The token does not exist on-chain. The server mints directly to `owner_address`.
+```json
+{ "status": "minting_initiated", "tx_hash": "0x..." }
+```
+
+**State B — Pre-minted, held by manufacturer**
+The NFT exists but is still in the manufacturer's treasury wallet (warehouse or retail stock). The server transfers it directly to `owner_address`.
+```json
+{ "status": "transfer_initiated", "tx_hash": "0x..." }
+```
+
+**State C — Already owned by a third party**
+The NFT is owned by a wallet that is neither the manufacturer nor the claiming user. This indicates the device is already provisioned or an attacker is attempting a replay. The server rejects immediately.
+```json
+{ "error": "DEVICE_ALREADY_CLAIMED", "message": "This hardware token has already been provisioned to another wallet." }
+```
+
+#### Firmware Reaction Matrix
+
+While the server processes States A or B, the firmware handles the HTTP responses as follows:
+
+- **On HTTP 409/403 (State C):** The firmware aborts the sequence, purges the temporary `/claim` session, triggers a local hardware error state, and keeps the device unprovisioned.
+- **On HTTP 200/201 (States A or B):** The firmware enters a secure polling loop using `Core_Admin_GetNftInfo()`. Once NFT ownership has settled on-chain to `owner_address`, it writes the vault (Admin Active) and permanently removes the `/claim` route.
+
+**Implementation sketch in `main_with_sdk.cpp`:**
 
 ```cpp
-// At boot — check on-chain state
-auto info = Core_Admin_GetNftInfo();
-if (!info.minted || info.owner_address == vendor_minting_wallet) {
-    // NFT not yet claimed — open NONE route
+// Only register /claim if no vault exists yet
+if (!Core_Init()) {
     Core_RegisterRoute("claim", CORE_ROLE_NONE, "CLAIM DEVICE", nullptr, false);
+    // ... start server, wait for NONE_ACCESS log entry ...
+    // ... POST /provision to producer server ...
+    // ... on 409: abort and signal error ...
+    // ... on 200/201: poll GetNftInfo until minted == true, then write vault and restart ...
 }
-// Poll Core_Admin_GetNftInfo() until owner_address == customer wallet
-// First successful ADMIN auth writes the vault automatically
 ```
 
-> **Note:** the NONE route name, polling interval, and vendor server protocol are implementation choices. The vault is written automatically on the first successful ADMIN authentication once NFT ownership has settled on-chain.
+The `/claim` route exists only during the provisioning window. Once the vault is written and the NFT is on-chain, the device reboots into normal operation with ADMIN authentication active. The route is never registered again.
+
+> **Note:** this is a reference design, not a mandatory pattern. The producer server endpoint, the polling strategy, the claim window duration, and the hardware error signaling are all implementation choices left to the integrator.
 
 ---
 
