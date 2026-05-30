@@ -5,6 +5,7 @@
 **v1.2.3**
 - `StartSession`: EEPROM check (`tokenId==0`) moved before the server call — returns `eeprom_missing` + emergency flag without contacting the gateway
 - `PollSession`: EEPROM check now takes priority over server status, so a missing EEPROM is detected even when the server is online
+
 **v1.2.2**
 - `Core_Poll`: log labels `ADMIN`/`GUEST` instead of `ADMIN_NFT`/`GUEST_NFT`
 - `Core_Poll`: rejection events logged — `invalid_signature`, `nft_rejected`, `guest_blocked_no_list`
