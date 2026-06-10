@@ -11,7 +11,7 @@
 #serial_number=
 #device_key=
 log_path=access_log.txt
-rpc_url=https://rpc.matrix.blockchain.enjin.io:443
+rpc_url=https://rpc.matrix.blockchain.enjin.io
 ca_bundle_path=certs/cacert.pem
 collection_id=3333
 token_id_override=001

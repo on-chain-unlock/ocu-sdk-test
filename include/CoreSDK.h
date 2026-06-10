@@ -1,5 +1,5 @@
 /**
- * CoreSDK.h  —  On-Chain Unlock · Core Library  v1.2.2
+ * CoreSDK.h  —  On-Chain Unlock · Core Library  v1.3.0
  * -------------------------------------------------------
  * Single public header. The integrator includes only this file.
  * All internals (Logic, Storage, SecureVault, Hardware, SessionManager)
@@ -35,7 +35,27 @@
  * SID PAYLOAD FORMAT:
  *   "ocu:[TT][22-char nonce][hex(deviceLabel|routeTitle)]"
  *   TT (2 hex): 00=GUEST 01=GUEST+redirect 02=ADMIN 03=ADMIN+redirect 04=NONE
- *   Same payload used for QR image, NFC NDEF record, and BLE advertisement.
+ *   Same payload used for QR image, NFC NDEF record, and DeepLink.
+ *
+ * WHITELIST MODEL (v1.3.0):
+ *   All whitelist modifications (add, remove, route locks) are staged in a
+ *   provisional copy. Changes become active ONLY after the admin signs the
+ *   full list with their wallet (sr25519 over a geometric nonce).
+ *   The signed whitelist is stored in an encrypted vault (AES-256-CBC).
+ *   Core_Admin_DiscardChanges() reverts the provisional copy to the active one.
+ *
+ * WHAT'S NEW IN v1.3.0:
+ *   - Signed whitelist: all changes staged, activated only after wallet signature
+ *   - Core_Admin_SaveWhitelist: starts ocu:10 signing session
+ *   - Core_Admin_IsWhitelistDirty: provisional != active?
+ *   - Core_Admin_DiscardChanges: revert provisional to active
+ *   - SecureEnclave: mprotect'd memory pages with shadow verification
+ *   - TLS certificate pinning on RPC endpoint (TOFU)
+ *   - RPC verification: state_queryStorageAt with CID/TID cross-check
+ *   - Post-injection XOR obfuscation of config strings
+ *   - Security alerts: S1-S32 coded events (debugger, tamper, MITM)
+ *   - Route mode changes staged (Sign & Save required)
+ *   - admin_ownership_lost flag in security status
  *
  * Changes v1.2.3:
  *   - StartSession: EEPROM check (tokenId==0) moved before the server call —
@@ -313,7 +333,7 @@ CoreResult Core_SetRouteMode(const char* uuid,
  * JSON response:
  * {
  *   "status":       "online" | "offline" | "eeprom_missing",
- *   "sid":          "<session_id>",   ← CANONICAL PAYLOAD for NFC/QR/BLE
+ *   "sid":          "<session_id>",   ← CANONICAL PAYLOAD for NFC/QR/DeepLink
  *   "nonce":        "<nonce>",        ← sid alias, used internally
  *   "admin_locked": true | false,
  *   "session_uuid": "<uuid>"          ← set as HttpOnly cookie
@@ -321,11 +341,10 @@ CoreResult Core_SetRouteMode(const char* uuid,
  *
  * THE SID IS THE UNIVERSAL PAYLOAD:
  *   The server uses the SID to build the presentation payload for any
- *   channel (QR, NFC, BLE) without depending on the Core for media
+ *   channel (QR, NFC, DeepLink) without depending on the Core for media
  *   generation. Examples:
  *     QR  → generate PNG from SID with any library
  *     NFC → write SID as NDEF text record
- *     BLE → advertise SID in manufacturer data
  */
 CoreResult Core_Start(const char* pid, const char* cookie_uuid);
 
@@ -337,7 +356,7 @@ CoreResult Core_Start(const char* pid, const char* cookie_uuid);
  * JSON response:
  * {
  *   "status": "ok" | "expired",
- *   "sid":    "<session_id>",   ← payload for NFC/QR/BLE
+ *   "sid":    "<session_id>",   ← payload for NFC/QR/DeepLink
  *   "nonce":  "<nonce>"
  * }
  *
@@ -488,18 +507,67 @@ CoreResult Core_Admin_RemoveAddress(const char* uuid, const char* address);
 CoreResult Core_Admin_UpdatePin(const char* uuid, const char* new_pin);
 
 /**
- * Security system status.
- * JSON: {
- *   "status":              "ok" | "forbidden",
- *   "is_custom_pin":       bool,
- *   "server_online":       bool,
- *   "token_id":            uint32,
- *   "collection_id":       uint32,
- *   "serial_number":       "<sn>",
- *   "failed_pin_attempts": int
+ * Core_Admin_GetSecurityStatus — system security overview.
+ *
+ * JSON response:
+ * {
+ *   "status":               "ok" | "forbidden",
+ *   "is_custom_pin":        bool,    — true if PIN was changed from factory default
+ *   "server_online":        bool,    — gateway reachability
+ *   "token_id":             uint32,  — current NFT token ID (0 = EEPROM missing)
+ *   "collection_id":        uint32,  — configured collection
+ *   "serial_number":        string,  — device serial
+ *   "failed_pin_attempts":  int,     — consecutive wrong PIN attempts
+ *   "admin_ownership_lost": bool     — the wallet that signed the whitelist
+ *                                      no longer owns the NFT. If true and
+ *                                      the admin did not transfer the token,
+ *                                      the device may have been compromised.
  * }
  */
 CoreResult Core_Admin_GetSecurityStatus(const char* uuid);
+
+/**
+ * Core_Admin_SaveWhitelist — starts a signing session (ocu:10) for the
+ * provisional whitelist. The admin wallet must scan the QR and sign with
+ * sr25519 to activate the changes. Poll /api/hw/status with the returned
+ * nonce to track progress. On success the provisional list becomes active
+ * and is persisted in the encrypted vault.
+ *
+ * pid: route PID used for the signing poll (typically "whitelist").
+ *
+ * JSON response:
+ * {
+ *   "status":       "online" | "offline" | "eeprom_missing",
+ *   "sid":          "<ocu:10...>",
+ *   "nonce":        "<geometric_nonce>",
+ *   "session_uuid": "<uuid>"
+ * }
+ */
+CoreResult Core_Admin_SaveWhitelist(const char* uuid, const char* pid);
+
+/**
+ * Core_Admin_IsWhitelistDirty — checks whether the provisional whitelist
+ * differs from the active (signed) version. Used by the frontend to show
+ * the "Sign & Save" / "Discard" buttons.
+ *
+ * JSON response:
+ * {
+ *   "dirty": bool   — true if there are unsaved changes
+ * }
+ */
+CoreResult Core_Admin_IsWhitelistDirty(const char* uuid);
+
+/**
+ * Core_Admin_DiscardChanges — reverts the provisional whitelist to the
+ * last signed and activated version. Undoes all staged add/remove/route
+ * changes that have not yet been signed.
+ *
+ * JSON response:
+ * {
+ *   "status": "ok" | "forbidden"
+ * }
+ */
+CoreResult Core_Admin_DiscardChanges(const char* uuid);
 
 /**
  * Last N lines of the access log. 0 = all lines.

@@ -48,7 +48,6 @@ body{
   color:var(--text);
   font-family:var(--sans);
   min-height:100vh;
-  /* subtle dot grid */
   background-image:
     radial-gradient(circle at 1px 1px,rgba(99,102,241,0.07) 1px,transparent 0);
   background-size:28px 28px;
@@ -293,7 +292,6 @@ select option:checked{background:var(--indigo)}
   <!-- STATUS BAR -->
   <div class="status-bar">
     <div>
-      <!-- Device name chip — cliccabile per rinominare -->
       <div id="deviceChip" class="device-chip" onclick="openDeviceNameModal()" title="Click to rename device">
         <span class="device-dot"></span>
         <span id="deviceNameLabel" class="truncate" style="max-width:160px">LOADING...</span>
@@ -302,6 +300,10 @@ select option:checked{background:var(--indigo)}
       <span id="lastSync" class="text-micro mono text-faint uppercase tracking mt-1" style="display:block">SYNC: --:--:--</span>
     </div>
     <div class="flex items-center gap-2">
+      <div id="headerDirtyBtns" style="display:none" class="flex gap-2">
+        <button onclick="discardChanges()" class="btn btn-ghost text-xxs" style="padding:6px 12px;color:var(--text-dim);font-size:9px">Discard</button>
+        <button onclick="saveWhitelist()" class="btn text-xxs" style="padding:6px 12px;background:var(--indigo);color:#fff;border:none;border-radius:var(--radius-sm);font-family:var(--mono);font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;cursor:pointer">Sign &amp; Save</button>
+      </div>
       <button onclick="openPinModal()" class="btn-icon" title="Update PIN">
         <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
       </button>
@@ -323,21 +325,16 @@ select option:checked{background:var(--indigo)}
     <span class="sec-num">01 //</span>
     <span class="sec-title">Manual Injection</span>
   </div>
-
-  <!-- Address + Name row -->
   <div class="grid-2 mb-3">
     <input type="text" id="inj_addr" placeholder="ef… Enjin Matrixchain address" maxlength="64">
     <input type="text" id="inj_name" placeholder="Display name (max 20 chars)" maxlength="20">
   </div>
-
-  <!-- Temporal toggle -->
   <div class="mb-3">
     <button class="toggle-btn" onclick="toggleSection('temporalSection','temporalArrow')">
       <svg id="temporalArrow" class="toggle-arrow" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
       Temporal constraints <span class="text-faint ml-1">(optional)</span>
     </button>
   </div>
-
   <div id="temporalSection" class="collapsible collapsed" style="max-height:600px">
     <div style="background:rgba(0,0,0,.25);border:1px solid rgba(99,102,241,.1);border-radius:var(--radius-sm);padding:16px;margin-bottom:12px">
       <div class="grid-2 mb-3">
@@ -359,12 +356,11 @@ select option:checked{background:var(--indigo)}
       </div>
     </div>
   </div>
-
   <button class="btn btn-primary btn-full" onclick="authorizeManual()">Inject Identity</button>
 </div>
 )raw";
 
-    // ── CHUNK 3 : sezioni 02 03 footer + drawer ────────────────────────────
+    // ── CHUNK 3 : sezioni 02-05, modali route, footer, drawer ──────────────
     html += R"raw(
 <!-- ── 02 INTERCEPTION LOG ── -->
 <div class="card mb-4">
@@ -397,6 +393,21 @@ select option:checked{background:var(--indigo)}
        style="border:1px solid var(--border);border-radius:var(--radius-sm);min-height:100px;max-height:280px;overflow-y:auto">
     <div id="activeListEmpty" style="display:flex;align-items:center;justify-content:center;height:80px">
       <span class="mono text-micro text-faint">// NO_NODE_DETECTED</span>
+    </div>
+  </div>
+
+  <!-- [AGGIUNTA v1.3.0] Dirty bar: modifiche non firmate -->
+  <div id="wlDirtyBar" class="hidden mb-3"
+       style="background:linear-gradient(90deg,rgba(99,102,241,.08),rgba(99,102,241,.04));
+              border:1px solid rgba(99,102,241,.25);border-radius:var(--radius);
+              padding:14px 18px;display:none;align-items:center;justify-content:space-between;gap:12px">
+    <div class="flex items-center gap-2">
+      <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" class="text-indigo shrink-0"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/></svg>
+      <span class="mono text-micro uppercase tracking text-indigo font-bold">Unsaved changes &mdash; sign to activate</span>
+    </div>
+    <div class="flex gap-2">
+      <button onclick="discardChanges()" class="btn btn-ghost text-xxs shrink-0" style="padding:6px 14px;color:var(--text-dim)">Discard</button>
+      <button onclick="saveWhitelist()" class="btn btn-primary text-xxs shrink-0" style="padding:6px 14px">Sign &amp; Save</button>
     </div>
   </div>
 
@@ -444,7 +455,6 @@ select option:checked{background:var(--indigo)}
   </div>
 </div>
 
-<!-- MODAL: OPEN DOOR -->
 <!-- MODAL: OPEN -->
 <div id="openModal" class="modal-backdrop">
   <div class="modal">
@@ -471,13 +481,13 @@ select option:checked{background:var(--indigo)}
         <label class="text-micro mono text-dim uppercase tracking mb-1" style="display:block">Auto-revert at <span class="text-faint">(leave empty = manual only)</span></label>
         <input type="datetime-local" id="lockModalUntil">
       </div>
-      <button class="btn btn-full" onclick="executeRouteMode(null,2,'lock')" style="background:rgba(244,63,94,.15);color:var(--red);border:1px solid rgba(244,63,94,.4);font-family:var(--mono);font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.12em;border-radius:var(--radius-sm);padding:12px;cursor:pointer">Lock — Admin Only</button>
+      <button class="btn btn-full" onclick="executeRouteMode(null,2,'lock')" style="background:rgba(244,63,94,.15);color:var(--red);border:1px solid rgba(244,63,94,.4);font-family:var(--mono);font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.12em;border-radius:var(--radius-sm);padding:12px;cursor:pointer">Lock &mdash; Admin Only</button>
       <button class="btn btn-ghost btn-full" onclick="closeRouteModeModal('lock')">Cancel</button>
     </div>
   </div>
 </div>
 
-
+<!-- FOOTER BAR -->
 <div style="border:1px solid var(--border);border-radius:var(--radius);padding:16px 20px;
      background:rgba(255,255,255,.01);display:flex;align-items:center;justify-content:space-between">
   <span class="mono text-micro text-faint uppercase tracking"><span class="text-indigo">&gt;</span> Session: Admin</span>
@@ -494,9 +504,7 @@ select option:checked{background:var(--indigo)}
 
 </div><!-- /.panel -->
 
-<!-- ================================================================
-     DRAWER — edit entry (name + temporal constraints)
-     ================================================================ -->
+<!-- DRAWER -->
 <div id="drawerOverlay" onclick="closeDrawer()"></div>
 <div id="editDrawer">
   <div class="flex items-center justify-between mb-4">
@@ -508,29 +516,17 @@ select option:checked{background:var(--indigo)}
       <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
     </button>
   </div>
-
-  <!-- Name field -->
   <div class="mb-4">
     <label class="text-micro mono text-dim uppercase tracking mb-2" style="display:block">Display Name <span class="text-faint">(max 20 chars)</span></label>
     <input type="text" id="drw_name" placeholder="e.g. Mario Rossi" maxlength="20">
   </div>
-
-  <!-- Access window -->
   <div class="mb-4">
     <p class="text-micro mono text-dim uppercase tracking mb-2">Access Window</p>
     <div class="space-y-2">
-      <div>
-        <label class="text-micro mono text-faint uppercase mb-1" style="display:block">Valid From</label>
-        <input type="datetime-local" id="drw_valid_from">
-      </div>
-      <div>
-        <label class="text-micro mono text-faint uppercase mb-1" style="display:block">Valid To</label>
-        <input type="datetime-local" id="drw_valid_to">
-      </div>
+      <div><label class="text-micro mono text-faint uppercase mb-1" style="display:block">Valid From</label><input type="datetime-local" id="drw_valid_from"></div>
+      <div><label class="text-micro mono text-faint uppercase mb-1" style="display:block">Valid To</label><input type="datetime-local" id="drw_valid_to"></div>
     </div>
   </div>
-
-  <!-- Recurring schedule -->
   <div class="mb-4">
     <div class="flex items-center justify-between mb-2">
       <p class="text-micro mono text-dim uppercase tracking">Recurring Schedule</p>
@@ -538,7 +534,6 @@ select option:checked{background:var(--indigo)}
     </div>
     <div id="drw_scheduleSlots" class="space-y-2"></div>
   </div>
-
   <div class="space-y-2">
     <button class="btn btn-primary btn-full" onclick="saveDrawer()">Commit</button>
     <button class="btn btn-ghost btn-full" onclick="clearDrawerConstraints()">Clear Constraints</button>
@@ -546,7 +541,7 @@ select option:checked{background:var(--indigo)}
 </div>
 )raw";
 
-    // ── CHUNK 4 : modali ───────────────────────────────────────────────────
+    // ── CHUNK 4 : modali + overlay firma whitelist ─────────────────────────
     html += R"raw(
 <!-- ── MODAL: PIN ── -->
 <div id="pinModal" class="modal-backdrop">
@@ -601,6 +596,30 @@ select option:checked{background:var(--indigo)}
     <button class="btn btn-ghost btn-full" onclick="closeAlert()">Acknowledge</button>
   </div>
 </div>
+
+<!-- ── [AGGIUNTA v1.3.0] OVERLAY: FIRMA WHITELIST ── -->
+<div id="wlSignOverlay" class="modal-backdrop">
+  <div style="max-width:340px;width:100%;background:var(--surface);border:1px solid var(--border);
+              border-radius:var(--radius);padding:28px;border-top:3px solid var(--indigo);text-align:center">
+    <div class="flex items-center justify-between mb-4">
+      <div class="flex items-center gap-2">
+        <span class="sec-num">&#x270D; //</span>
+        <span class="sec-title">Whitelist Signature</span>
+      </div>
+      <button onclick="cancelWlSign()" class="btn-icon" style="flex-shrink:0">
+        <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+      </button>
+    </div>
+    <div id="wlQrBox" style="width:240px;height:240px;margin:0 auto 16px;
+         display:flex;align-items:center;justify-content:center;
+         background:rgba(0,0,0,.3);border:1px solid rgba(99,102,241,.12);border-radius:var(--radius-sm)">
+      <span class="mono text-micro text-faint pulse">Loading QR...</span>
+    </div>
+    <div id="wlSignTimer" class="mono text-sm font-bold mb-2" style="color:var(--indigo);letter-spacing:.15em">02:00</div>
+    <div id="wlSignStatus" class="mono text-micro text-dim mb-3">Scan with admin wallet to sign</div>
+  </div>
+</div>
 )raw";
 
     // ── CHUNK 5 : JS parte 1 (state + utilities + schedule) ───────────────
@@ -651,11 +670,9 @@ function loadDeviceName() {
         if (r && r.ok) r.json().then(d => {
             const serverLabel = d.label || "";
             if (serverLabel) {
-                // Server has a value — use it as source of truth
                 localStorage.setItem(DEVICE_NAME_KEY, serverLabel);
                 document.getElementById("deviceNameLabel").textContent = serverLabel;
             } else if (cached) {
-                // Server is empty but localStorage has a value — push it to server
                 apiFetch("/api/admin/device/label", "POST", { label: cached });
                 document.getElementById("deviceNameLabel").textContent = cached;
             } else {
@@ -669,7 +686,6 @@ function saveDeviceName() {
     if (val) {
         localStorage.setItem(DEVICE_NAME_KEY, val);
         document.getElementById("deviceNameLabel").textContent = val;
-        // Persiste sul server
         apiFetch("/api/admin/device/label", "POST", { label: val });
     }
     closeDeviceNameModal();
@@ -752,29 +768,23 @@ async function saveDrawer() {
     const valid_to   = fromDatetimeLocal(document.getElementById("drw_valid_to").value);
     const schedule   = readScheduleSlots("drw");
     const resp = await apiFetch("/api/admin/whitelist/add","POST",{
-        address: selectedActiveAddr,
-        name,
-        valid_from,
-        valid_to,
+        address: selectedActiveAddr, name, valid_from, valid_to,
         schedule: schedule.length > 0 ? schedule : []
     });
     if (resp && resp.ok) {
-        // Aggiorna subito la cache locale così openDrawer trova il dato corretto
         if (activeEntriesMap[selectedActiveAddr])
             activeEntriesMap[selectedActiveAddr].name = name;
         closeDrawer();
         refreshAll();
-        showAlert("COMMITTED","Saved.","success");
     } else showAlert("FAILED","Could not save.");
 }
 async function clearDrawerConstraints() {
     if (!selectedActiveAddr) return;
     const name = document.getElementById("drw_name").value.trim().substring(0,20);
     const resp = await apiFetch("/api/admin/whitelist/add","POST",{
-        address: selectedActiveAddr, name,
-        valid_from:0, valid_to:0, schedule:[]
+        address: selectedActiveAddr, name, valid_from:0, valid_to:0, schedule:[]
     });
-    if (resp && resp.ok) { closeDrawer(); refreshAll(); showAlert("CLEARED","Constraints removed.","success"); }
+    if (resp && resp.ok) { closeDrawer(); refreshAll(); }
 }
 
 // ── RENDER ACTIVE LIST ─────────────────────────────────────────────────────
@@ -804,29 +814,27 @@ function renderActiveList(entries) {
         const expired = valid_to && valid_to < now;
         let badges = "";
         if (valid_from || valid_to) {
-            const fs = valid_from ? shortDate(valid_from) : "∞";
-            const ts = valid_to   ? shortDate(valid_to)   : "∞";
-            badges += `<span class="badge ${expired?"badge-red":"badge-blue"} ml-1">${fs} → ${ts}</span>`;
+            const fs = valid_from ? shortDate(valid_from) : "\u221E";
+            const ts = valid_to   ? shortDate(valid_to)   : "\u221E";
+            badges += `<span class="badge ${expired?"badge-red":"badge-blue"} ml-1">${fs} \u2192 ${ts}</span>`;
         }
         if (schedule && schedule.length > 0)
-            badges += `<span class="badge badge-green ml-1">&#x23f1; ${schedule.length}sl</span>`;
+            badges += `<span class="badge badge-green ml-1">\u23F1 ${schedule.length}sl</span>`;
         if (expired)
             badges += `<span class="badge badge-red ml-1">EXPIRED</span>`;
 
         const shortAddr = addr.length > 16
-            ? addr.substring(0,8) + "…" + addr.substring(addr.length - 6)
+            ? addr.substring(0,8) + "\u2026" + addr.substring(addr.length - 6)
             : addr;
         const displayLine = name
             ? `<span style="color:#a78bfa;font-weight:600">${name}</span><span class="text-faint ml-1" style="font-size:9px">${shortAddr}</span>`
-            : `&gt; ${addr}`;
+            : `> ${addr}`;
 
         const row = document.createElement("div");
         row.className = "entry-row";
-        const isSelected = selectedActiveAddr === addr;
-        if (isSelected) row.style.background = "var(--indigo-glow)";
+        if (selectedActiveAddr === addr) row.style.background = "var(--indigo-glow)";
         row.style.cursor = "pointer";
         row.onclick = () => {
-            // Deseleziona se già selezionata, altrimenti seleziona
             selectedActiveAddr = (selectedActiveAddr === addr) ? "" : addr;
             renderActiveList(Object.values(activeEntriesMap));
         };
@@ -843,7 +851,7 @@ function renderActiveList(entries) {
                 <button onclick="event.stopPropagation();showConfirm('${addr}')"
                     style="background:none;border:1px solid rgba(244,63,94,.2);border-radius:6px;padding:4px 8px;cursor:pointer;font-family:var(--mono);font-size:9px;color:rgba(244,63,94,.4);transition:all .12s"
                     onmouseover="this.style.color='var(--red)';this.style.borderColor='var(--red)'"
-                    onmouseout="this.style.color='rgba(244,63,94,.4)';this.style.borderColor='rgba(244,63,94,.2)'">&#x2715;</button>
+                    onmouseout="this.style.color='rgba(244,63,94,.4)';this.style.borderColor='rgba(244,63,94,.2)'">\u2715</button>
             </div>`;
         container.appendChild(row);
     });
@@ -861,7 +869,7 @@ async function apiFetch(url, method = "GET", body = null) {
 }
 )raw";
 
-    // ── CHUNK 7 : JS parte 3 (actions + init) ─────────────────────────────
+    // ── CHUNK 7 : JS parte 3 (actions + route control) ────────────────────
     js += R"raw(
 // ── ACTIONS ────────────────────────────────────────────────────────────────
 function openPinModal()  { document.getElementById("pinModal").classList.add("open"); }
@@ -882,6 +890,12 @@ async function checkSecurityStatus() {
         const d = await r.json();
         const w = document.getElementById("pinWarning");
         if (w) w.classList.toggle("hidden", d.is_custom_pin === true);
+        if (d.admin_ownership_lost) {
+            showAlert("OWNERSHIP WARNING",
+                "The admin wallet that signed the whitelist no longer owns the NFT. " +
+                "Verify your wallet — if you did not transfer the token, " +
+                "the device may have been compromised. Contact support.");
+        }
     }
 }
 
@@ -946,7 +960,7 @@ async function refreshRoutes() {
         const canOpen    = rt.allow_open;
         const roleColor  = rt.role === "admin" ? "var(--red)" : rt.role === "none" ? "var(--green)" : "var(--indigo)";
         const roleTxt    = rt.role.toUpperCase();
-        const redirectTxt = (rt.redirect && rt.redirect !== "NONE") ? rt.redirect : "—";
+        const redirectTxt = (rt.redirect && rt.redirect !== "NONE") ? rt.redirect : "\u2014";
 
         const row = document.createElement("div");
         row.style.cssText = "display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-bottom:1px solid var(--border)";
@@ -958,7 +972,7 @@ async function refreshRoutes() {
                     ${isOpen   ? '<span style="font-family:var(--mono);font-size:9px;padding:2px 7px;border-radius:99px;border:1px solid var(--green);color:var(--green);background:rgba(34,211,168,.1)">OPEN</span>' : ""}
                     ${isLocked ? '<span style="font-family:var(--mono);font-size:9px;padding:2px 7px;border-radius:99px;border:1px solid var(--red);color:var(--red);background:rgba(244,63,94,.1)">LOCKED</span>' : ""}
                 </div>
-                <div style="font-family:var(--mono);font-size:9px;color:var(--text-dim);margin-top:3px">${rt.title} &nbsp;·&nbsp; redirect: ${redirectTxt}</div>
+                <div style="font-family:var(--mono);font-size:9px;color:var(--text-dim);margin-top:3px">${rt.title} \u00A0\u00B7\u00A0 redirect: ${redirectTxt}</div>
             </div>
             <div style="display:flex;gap:4px;margin-left:12px;flex-shrink:0">
                 ${canOpen ? `
@@ -980,10 +994,7 @@ async function refreshRoutes() {
 }
 
 function promptOpenDoor(pid, currentMode) {
-    if (currentMode === 1) {
-        executeRouteMode(pid, 0, null);
-        return;
-    }
+    if (currentMode === 1) { executeRouteMode(pid, 0, null); return; }
     openDoorPid = pid;
     document.getElementById("openModalPidLabel").textContent = "Route: /" + pid;
     document.getElementById("openModalUntil").value = "";
@@ -991,10 +1002,7 @@ function promptOpenDoor(pid, currentMode) {
 }
 
 function promptLockDoor(pid, currentMode) {
-    if (currentMode === 2) {
-        executeRouteMode(pid, 0, null);
-        return;
-    }
+    if (currentMode === 2) { executeRouteMode(pid, 0, null); return; }
     openDoorPid = pid;
     document.getElementById("lockModalPidLabel").textContent = "Route: /" + pid;
     document.getElementById("lockModalUntil").value = "";
@@ -1019,13 +1027,8 @@ async function executeRouteMode(pid, mode, modalType) {
         pid: pidTarget, mode, valid_until: until
     });
     if (r && r.ok) {
-        const label = mode === 0 ? "RESTORED" : mode === 1 ? "OPENED" : "LOCKED";
-        const type  = mode === 2 ? "error" : mode === 1 ? "success" : "error";
-        showAlert(`ROUTE_${label}`,
-            mode === 0 ? `/${pidTarget} restored to whitelist.` :
-            mode === 1 ? `/${pidTarget} is now open to everyone.` :
-                         `/${pidTarget} locked — admin only.`, type);
         refreshRoutes();
+        checkWhitelistDirty();
     } else showAlert("ERROR","Operation failed.");
 }
 
@@ -1033,7 +1036,7 @@ async function executeRouteMode(pid, mode, modalType) {
 let cachedLogLines = [];
 )raw";
 
-    // ── CHUNK 8 : JS parte 4 (log + init) ─────────────────────────────
+    // ── CHUNK 8 : JS parte 4 (log + whitelist sign + refresh + init) ──────
     js += R"raw(
 async function loadLogs() {
     const r = await apiFetch("/api/admin/logs?n=50");
@@ -1050,7 +1053,6 @@ async function loadLogs() {
     empty.style.display = "none";
     box.style.display   = "block";
     box.innerHTML = cachedLogLines.map(line => {
-        // Colora SUCCESS verde, REJECTED/DENIED rosso, resto default
         let color = "rgba(255,255,255,.35)";
         if (line.includes("SUCCESS"))               color = "var(--green)";
         else if (line.includes("REJECTED") || line.includes("DENIED") || line.includes("LOCKED")) color = "var(--red)";
@@ -1128,7 +1130,6 @@ async function authorizeManual() {
         if (!document.getElementById("temporalSection").classList.contains("collapsed"))
             toggleSection("temporalSection","temporalArrow");
         refreshAll();
-        showAlert("SUCCESS","Identity linked.","success");
     } else showAlert("INJECTION_FAILED","Already present or invalid format.");
 }
 
@@ -1164,6 +1165,157 @@ async function executeRemove() {
     }
 }
 
+// ── [AGGIUNTA v1.3.0] WHITELIST SIGN ──────────────────────────────────────
+// Avvia una sessione ocu:10 per firmare la whitelist provvisoria.
+// L'overlay QR appare immediatamente. L'admin firma col wallet.
+// Il poll controlla lo stato e chiude l'overlay al successo.
+let wlSignNonce = null;
+let wlSignPollTimer = null;
+let wlSignTimerInterval = null;
+
+async function saveWhitelist() {
+    try {
+        const r = await apiFetch("/api/admin/whitelist/save", "POST");
+        if (!r || !r.ok) {
+            const d = r ? await r.json().catch(() => ({})) : {};
+            showAlert("SAVE_FAILED", d.status || "Could not start signing session.");
+            return;
+        }
+
+        const d = await r.json();
+        wlSignNonce = d.nonce;
+
+        if (!wlSignNonce || d.status === "offline") {
+            showAlert("OFFLINE", "Server unreachable.");
+            return;
+        }
+
+        // Apri l'overlay e carica il QR immediatamente
+        document.getElementById("wlSignOverlay").classList.add("open");
+        document.getElementById("wlSignStatus").textContent = "Scan with admin wallet to sign";
+        document.getElementById("wlSignStatus").style.color = "";
+
+        const qrBox = document.getElementById("wlQrBox");
+        const img = new Image();
+        img.src = "/api/hw/qr?n=" + wlSignNonce;
+        img.style.cssText = "width:220px;height:220px;border-radius:12px;opacity:0;transition:opacity .3s";
+        img.onload = function() {
+            qrBox.innerHTML = "";
+            qrBox.appendChild(img);
+            img.style.opacity = "1";
+        };
+        img.onerror = function() {
+            qrBox.innerHTML = '<span class="mono text-micro text-red">QR ERROR</span>';
+        };
+
+        startWlSignTimer(120);
+        pollWlSign();
+
+    } catch (e) {
+        showAlert("ERROR", "Network error.");
+    }
+}
+
+function startWlSignTimer(totalSec) {
+    if (wlSignTimerInterval) clearInterval(wlSignTimerInterval);
+
+    const endTime = Date.now() + totalSec * 1000;
+    const el = document.getElementById("wlSignTimer");
+
+    wlSignTimerInterval = setInterval(function() {
+        const rem = Math.max(0, Math.ceil((endTime - Date.now()) / 1000));
+        if (el) {
+            const m = Math.floor(rem / 60);
+            const s = rem % 60;
+            el.textContent = String(m).padStart(2, "0") + ":" + String(s).padStart(2, "0");
+            el.style.color = rem <= 10 ? "var(--red)" : "var(--indigo)";
+        }
+        if (rem <= 0) {
+            cancelWlSign();
+            showAlert("EXPIRED", "Signing session expired.");
+        }
+    }, 1000);
+}
+
+async function pollWlSign() {
+    if (!wlSignNonce) return;
+
+    try {
+        const r = await fetch(
+            "/api/hw/status?pid=whitelist&n=" + wlSignNonce + "&t=" + Date.now(),
+            { credentials: "include" }
+        );
+        const d = await r.json().catch(function() { return {}; });
+
+        if (d.status === "whitelist_saved") {
+            document.getElementById("wlSignStatus").textContent = "Whitelist signed!";
+            document.getElementById("wlSignStatus").style.color = "var(--green)";
+            if (wlSignTimerInterval) clearInterval(wlSignTimerInterval);
+            document.getElementById("wlSignTimer").textContent = "";
+
+            setTimeout(function() {
+                closeWlSign();
+                refreshAll();
+                showAlert("SUCCESS", "Whitelist signed and activated.", "success");
+            }, 1500);
+            return;
+        }
+
+        if (d.status === "whitelist_rejected") {
+            document.getElementById("wlSignStatus").textContent = "Signature rejected.";
+            document.getElementById("wlSignStatus").style.color = "var(--red)";
+            setTimeout(cancelWlSign, 2000);
+            return;
+        }
+
+    } catch (e) {
+        // Errore di rete, ritenta al prossimo ciclo
+    }
+
+    wlSignPollTimer = setTimeout(pollWlSign, 2000);
+}
+
+function cancelWlSign() {
+    closeWlSign();
+}
+
+function closeWlSign() {
+    wlSignNonce = null;
+    if (wlSignPollTimer)     { clearTimeout(wlSignPollTimer);     wlSignPollTimer = null; }
+    if (wlSignTimerInterval) { clearInterval(wlSignTimerInterval); wlSignTimerInterval = null; }
+    document.getElementById("wlSignOverlay").classList.remove("open");
+    // Reset per il prossimo uso
+    document.getElementById("wlQrBox").innerHTML =
+        '<span class="mono text-micro text-faint pulse">Loading QR...</span>';
+    document.getElementById("wlSignTimer").textContent = "02:00";
+    document.getElementById("wlSignTimer").style.color = "var(--indigo)";
+}
+async function discardChanges() {
+    const r = await apiFetch("/api/admin/whitelist/discard", "POST");
+    if (r && r.ok) {
+        refreshAll();
+        showAlert("DISCARDED", "All unsaved changes reverted.", "success");
+    } else {
+        showAlert("ERROR", "Could not discard changes.");
+    }
+}
+// ── [AGGIUNTA v1.3.0] DIRTY CHECK ────────────────────────────────────────
+async function checkWhitelistDirty() {
+    const r = await apiFetch("/api/admin/whitelist/dirty");
+    if (!r || !r.ok) return;
+    const d = await r.json();
+    const bar = document.getElementById("wlDirtyBar");
+    const hdr = document.getElementById("headerDirtyBtns");
+    if (d.dirty) {
+        if (bar) { bar.classList.remove("hidden"); bar.style.display = "flex"; }
+        if (hdr) hdr.style.display = "flex";
+    } else {
+        if (bar) { bar.classList.add("hidden"); bar.style.display = "none"; }
+        if (hdr) hdr.style.display = "none";
+    }
+}
+
+// ── REFRESH + INIT ─────────────────────────────────────────────────────────
 async function refreshAll() {
     const icon = document.getElementById("refreshIcon");
     if (icon) icon.style.transform = "rotate(360deg)";
@@ -1202,6 +1354,7 @@ async function refreshAll() {
     }
 
     await refreshRoutes();
+    checkWhitelistDirty();   // [AGGIUNTA v1.3.0]
 
     document.getElementById("lastSync").textContent = "SYNC: " + new Date().toLocaleTimeString();
 }
@@ -1211,6 +1364,7 @@ document.addEventListener("DOMContentLoaded", () => {
     loadDeviceName();
     refreshAll();
     checkSecurityStatus();
+    checkWhitelistDirty();   // [AGGIUNTA v1.3.0]
     setInterval(() => {
         refreshAll();
         const box = document.getElementById("logBox");
@@ -1218,8 +1372,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }, 5000);
 });
 </script>
-</body>
-</html>
+</body></html>
 )raw";
 
     return html + js;

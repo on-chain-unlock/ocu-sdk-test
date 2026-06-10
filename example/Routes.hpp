@@ -1,7 +1,7 @@
 #pragma once
 
 // =============================================================================
-//  Routes.hpp — HTTP API layer  (On-Chain Unlock v1.2.0)
+//  Routes.hpp — HTTP API layer  (On-Chain Unlock v1.3.0)
 //
 //  Dependencies: CoreSDK.h, httplib.h, json.hpp, QrGenerator.h
 //  ZERO access to Core internals — only the public SDK API is used.
@@ -26,6 +26,11 @@
 //    POST /api/admin/route/open toggles a GUEST route to NONE at runtime.
 //    Requires allow_open=true in Core_RegisterRoute. Always requires a
 //    valid_until timestamp — routes cannot be left open indefinitely.
+//
+//  WHITELIST SIGNING (v1.3.0):
+//    POST /api/admin/whitelist/save  — avvia sessione ocu:10 (firma admin)
+//    GET  /api/admin/whitelist/dirty — provvisoria != attiva?
+//    add/remove modificano la PROVVISORIA; save la firma e la attiva.
 //
 //  SID FLOW:
 //    GET  /api/hw/start  → Core_Start()  → returns SID + nonce
@@ -159,14 +164,13 @@ inline void SetupRoutes(httplib::Server& svr,
 
         CoreResult r = Core_Start(pid.c_str(), uuid.c_str());
 
-        std::string payload(r.json_payload);
         std::string newUuid;
-        auto pos = payload.find("\"session_uuid\":\"");
-        if (pos != std::string::npos) {
-            pos += 16;
-            auto end = payload.find('"', pos);
-            if (end != std::string::npos) newUuid = payload.substr(pos, end - pos);
-        }
+        try {
+            auto j = nlohmann::json::parse(r.json_payload);
+            newUuid = j.value("session_uuid", "");
+        } catch (...) {}
+
+
         if (!newUuid.empty())
             res.set_header("Set-Cookie",
                 "session_uuid=" + newUuid +
@@ -184,7 +188,7 @@ inline void SetupRoutes(httplib::Server& svr,
         std::string pid   = req.get_param_value("pid");
         std::string nonce = req.get_param_value("n");
         if (nonce.empty()) {
-            res.status = 401;
+            res.status = 200;
             res.set_content(R"({"status":"expired"})", "application/json");
             return;
         }
@@ -259,7 +263,8 @@ inline void SetupRoutes(httplib::Server& svr,
         });
 
     // GET /api/admin/whitelist/active
-    // Full whitelist including temporal constraints for each entry.
+    // Whitelist mostrata in UI: provvisoria se ci sono modifiche non firmate,
+    // altrimenti attiva. Include vincoli temporali per ogni entry.
     // Risposta: array di { address, valid_from, valid_to, schedule }
     SecureApi(svr, "/api/admin/whitelist/active", "GET", CORE_ROLE_ADMIN,
         [](const httplib::Request& req, httplib::Response& res) {
@@ -271,7 +276,8 @@ inline void SetupRoutes(httplib::Server& svr,
         });
 
     // POST /api/admin/whitelist/add
-    // Adds an address to the whitelist (from pending or directly).
+    // Aggiunge un indirizzo alla PROVVISORIA (da pending o diretto).
+    // NB: la modifica NON e' attiva finche' l'admin non firma via /save.
     // Body JSON: {
     //   "address":    "ef...",          (required)
     //   "valid_from": 1700000000,       (optional, Unix timestamp, 0 = no limit)
@@ -306,7 +312,8 @@ inline void SetupRoutes(httplib::Server& svr,
         });
 
     // POST /api/admin/whitelist/remove
-    // Removes an address from the whitelist and invalidates its active sessions.
+    // Rimuove un indirizzo dalla PROVVISORIA e invalida le sue sessioni attive.
+    // NB: la modifica NON e' attiva finche' l'admin non firma via /save.
     // Body JSON: { "address": "ef..." }
     SecureApi(svr, "/api/admin/whitelist/remove", "POST", CORE_ROLE_ADMIN,
         [](const httplib::Request& req, httplib::Response& res) {
@@ -320,6 +327,39 @@ inline void SetupRoutes(httplib::Server& svr,
             } catch (...) { res.status = 400; }
         });
 
+    // POST /api/admin/whitelist/save
+    // Avvia una sessione ocu:10 per far firmare la whitelist provvisoria
+    // all'admin (wallet sr25519). Il frontend mostra il QR del SID ritornato,
+    // l'admin firma, il poll su /api/hw/status completa il commit.
+    // Risposta: { sid, nonce, session_uuid, status }
+    SecureApi(svr, "/api/admin/whitelist/save", "POST", CORE_ROLE_ADMIN,
+        [](const httplib::Request& req, httplib::Response& res) {
+            std::string uuid = getCookieValue(req.get_header_value("Cookie"), "session_uuid");
+            CoreResult r = Core_Admin_SaveWhitelist(uuid.c_str(), "whitelist");
+            res.status = r.http_code;
+            res.set_content(r.json_payload, "application/json");
+        });
+
+    // GET /api/admin/whitelist/dirty
+    // Ritorna { dirty: true/false } — la provvisoria differisce dall'attiva?
+    // Usato dalla UI per ricordare all'admin di firmare e salvare.
+    SecureApi(svr, "/api/admin/whitelist/dirty", "GET", CORE_ROLE_ADMIN,
+        [](const httplib::Request& req, httplib::Response& res) {
+            std::string uuid = getCookieValue(req.get_header_value("Cookie"), "session_uuid");
+            CoreResult r = Core_Admin_IsWhitelistDirty(uuid.c_str());
+            res.status = r.http_code;
+            res.set_content(r.json_payload, "application/json");
+        });
+    // POST /api/admin/whitelist/discard
+    // Reverts provisional whitelist to the active (signed) version.
+    // Undoes all staged changes.
+    SecureApi(svr, "/api/admin/whitelist/discard", "POST", CORE_ROLE_ADMIN,
+        [](const httplib::Request& req, httplib::Response& res) {
+            std::string uuid = getCookieValue(req.get_header_value("Cookie"), "session_uuid");
+            CoreResult r = Core_Admin_DiscardChanges(uuid.c_str());
+            res.status = r.http_code;
+            res.set_content(r.json_payload, "application/json");
+    });
     // GET /api/admin/security/status
     // System status: custom PIN, server online, token ID, failed attempts...
     SecureApi(svr, "/api/admin/security/status", "GET", CORE_ROLE_ADMIN,

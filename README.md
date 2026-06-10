@@ -1,38 +1,54 @@
 # OCU CoreSDK — On-Chain Unlock
-**v1.2.3** — Blockchain-based physical access control
+**v1.3.0** — Blockchain-based physical access control
 
-### Changelog
-**v1.2.3**
-- `StartSession`: EEPROM check (`tokenId==0`) moved before the server call — returns `eeprom_missing` + emergency flag without contacting the gateway
+## Changelog
+
+### v1.3.0
+- **Signed whitelist**: all changes (add, remove, route locks) are staged in a provisional copy and activated only after the admin signs the geometric nonce with their wallet (sr25519)
+- `Core_Admin_SaveWhitelist`: starts the `ocu:10` signing session for the provisional whitelist
+- `Core_Admin_IsWhitelistDirty`: returns whether the provisional list differs from the active one
+- `Core_Admin_DiscardChanges`: reverts the provisional whitelist to the last signed version
+- **SecureEnclave v1**: `mprotect`-protected memory pages with shadow verification
+- **TLS certificate pinning**: TOFU pinning on the RPC endpoint at boot; mismatch triggers a security alert
+- **RPC response verification**: `state_queryStorageAt` cross-checks CID/TID from the blockchain response against enclave-protected values to prevent storage key substitution attacks
+- **Post-injection string obfuscation**: `inject_config.py/batch_inject` applies ADD/SUB cipher after injecting config values; runtime deobfuscation uses SHA256-derived keys
+- **Security event logging**: coded alerts for debugger detection (S1), timing anomalies (S2), code modification (S3-S4), memory tampering (S11-S14), RPC MITM (S20-S22), TLS certificate mismatch (S30-S31)
+- **Vault V3**: a single `vault.enc` stores admin address, NFT token ID, PIN hash, signed whitelist blob, geometric nonce, and whitelist signature, all protected by AES-256-GCM with random IV
+- `admin_ownership_lost` flag in security status — warns if the signing admin no longer owns the NFT
+- `Core_Poll` and route handlers: 200 instead of 401 for expired sessions (frontend compatibility)
+- Frontend: Sign & Save / Discard buttons in header bar; ownership warning alert
+
+### v1.2.3
+- `StartSession`: EEPROM check (`tokenId == 0`) moved before the server call — returns `eeprom_missing` + emergency flag without contacting the gateway
 - `PollSession`: EEPROM check now takes priority over server status, so a missing EEPROM is detected even when the server is online
 
-**v1.2.2**
+### v1.2.2
 - `Core_Poll`: log labels `ADMIN`/`GUEST` instead of `ADMIN_NFT`/`GUEST_NFT`
 - `Core_Poll`: rejection events logged — `invalid_signature`, `nft_rejected`, `guest_blocked_no_list`
-- `ValidateAccess`: whitelisted addresses no longer added to pending on ADMIN route rejection
-- `getAuthorizedSession`: log role reflects actual user role (`actualRole`), not minimum required by route
+- `ValidateAccess`: whitelisted addresses are no longer added to pending on ADMIN route rejection
+- `getAuthorizedSession`: log role reflects actual user role (`actualRole`), not the minimum required by the route
 
-**v1.2.1**
-- `Core_Emergency`: emergency PIN now activates when EEPROM is missing (`token_id == 0`), regardless of server reachability. Previously it only activated when the server was unreachable.
-- NONE route: real role now detected (ADMIN/GUEST/NONE) — unknown addresses added to pending list only
+### v1.2.1
+- `Core_Emergency`: emergency PIN now activates when EEPROM is missing (`token_id == 0`), regardless of server reachability
+- NONE route: real role now detected (ADMIN/GUEST/NONE) — unknown addresses are added to the pending list only
 - `Core_GetAddress`: new — returns wallet address associated with a UUID session
 
-**v1.2.0**
-- `WhitelistEntry`: name, `valid_from`/`valid_to`, recurring schedule
+### v1.2.0
+- `WhitelistEntry`: name, `valid_from` / `valid_to`, recurring schedule
 - NONE route: open access with wallet trace logging
 - `Core_RegisterRoute`: `allow_open` flag for runtime GUEST→NONE toggle
 - `Core_SetRouteMode`: timed open/lock with automatic revert
 - `Core_Admin_GetNftInfo`: token existence + owner lookup (no auth required)
 - `Core_Admin_GetDeviceLabel` / `SetDeviceLabel`: persistent device name
 - SID label encodes `deviceLabel|routeTitle` for wallet display
-- AES vault: random IV per write (from `/dev/urandom`)
+- AES vault: random IV per write
 - Emergency PIN lockout capped at 240 min; reset by correct PIN or ADMIN auth
 
 ---
 
 ## Scope
 
-OCU CoreSDK is designed for **residential, SMB, and small-to-medium installations**. The standard $5/device license covers any deployment where scale and criticality do not require enterprise-grade certification.
+OCU CoreSDK is designed for **residential, SMB, and small-to-medium installations**. The standard $5/device license covers deployments where scale and criticality do not require enterprise-grade certification.
 
 **Standard license covers:**
 - Homes, apartments, small offices, co-working spaces
@@ -72,7 +88,7 @@ OCU is an embedded access control system that uses NFT ownership on the **Enjin 
 
 ## Authentication Model
 
-```
+```text
 Wallet (Flutter/Rust)
   └── sr25519 sign(nonce)
         └── Core_Poll() verifies signature
@@ -83,24 +99,26 @@ Wallet (Flutter/Rust)
 Three access roles:
 
 | Role | Who enters | Whitelist required |
-|------|-----------|-------------------|
+|------|------------|-------------------|
 | `ADMIN` | NFT token owner only | No |
 | `GUEST` | Addresses in whitelist | Yes |
 | `NONE` | Anyone with a wallet | No — trace only |
 
-The **NONE** route does not grant privileged access — it logs the wallet address and opens the relay for traceable public events (open house, etc.). ADMIN and GUEST addresses passing through a NONE route are recognized with their real role and are not added to the pending list.
+The **NONE** route does not grant privileged access. It logs the wallet address and opens the relay for traceable public events (open house, etc.). `ADMIN` and `GUEST` addresses passing through a `NONE` route are recognized with their real role and are not added to the pending list.
 
 ---
 
 ## SID Payload Format
 
-The SID is the universal authentication payload — the same bytes go into QR, NFC (NDEF), or BLE:
+The SID is the universal authentication payload — the same bytes go into QR, NFC (NDEF), or BLE.
 
-```
+### Standard sessions (00–04)
+
+```text
 ocu:[TT][NNNNNNNNNNNNNNNNNNNNNN][LLLLLL...]
      ^^  ^^^^^^^^^^^^^^^^^^^^^^  ^^^^^^^^^^^
      |   22-char nonce           hex(deviceLabel|routeTitle)
-     |   OCU_ + 8 hex (random)   split on pipe '|'
+     |   OCU_ + 8 hex (random)
      |   + 10 decimal digits
      |   (Unix epoch in tenths
      |    of second % 10^10)
@@ -113,24 +131,125 @@ ocu:[TT][NNNNNNNNNNNNNNNNNNNNNN][LLLLLL...]
        04 = NONE   (trace only)
 ```
 
-The wallet parses `substring(4,6)` for type, `substring(6,28)` for nonce, `substring(28)` decoded as UTF-8 and split on `|` for device label and route title.
+The wallet parses:
+- `substring(4,6)` for the type
+- `substring(6,28)` for the nonce
+- `substring(28)` decoded as UTF-8 and split on `|` for device label and route title
 
 The 10 timestamp digits are `(milliseconds / 100) % 10^10` — tenths of a second, modulo-wrapped to 10 digits. The wallet uses this value to compute the session countdown without any server communication. The modulo wraps every ~31 years.
 
+### Whitelist signature session (10)
+
+Used when the admin commits whitelist changes.
+
+```text
+ocu:10
+^^^^^^^^^^^^^^^^^
+OCU_ + 8 hex (list length, zero-padded)
++ 64 hex (SHA256 hash of serialized entries + route locks)
+```
+
+The geometric nonce encodes the list state: entry count + content hash.
+
+The wallet signs this nonce. If the list changes between staging and signing, the nonce will no longer match and the commit is rejected.
+
+This prevents TOCTOU attacks on the whitelist.
+
 ---
 
-## Vault File Format
+## Vault File Format (V3)
 
-Two encrypted files on disk:
+Single encrypted file on disk.
 
 | File | Contents | Key derivation |
 |------|----------|----------------|
-| `vault.enc` | admin address + NFT token ID | `SHA256(serial_number + device_key)` |
-| `whitelist.enc` | `WhitelistEntry[]` with name, temporal constraints, schedule | `SHA256(serial_number + token_id + admin_address)` |
+| `vault.enc` | admin address, NFT token ID, signed whitelist blob, geometric nonce, whitelist signature, PIN hash | `SHA256(serial_number + device_key + token_id)` |
 
-Both use **AES-256-CBC** with a **random IV** (16 bytes from `/dev/urandom`) prepended to the ciphertext. Format: `[IV(16)][ciphertext]`.
+Vault V3 uses two authenticated encryption layers.
 
-A `device_label.txt` is stored in plaintext alongside the vault — it contains the human-readable device name (max 20 chars).
+### Outer layer — device vault
+
+The outer layer protects the full device state against cloning and tampering.
+
+Key derivation:
+
+```text
+HWKey = SHA256(serial_number + device_key + token_id)
+```
+
+Protected JSON fields:
+
+```json
+{
+  "addr": "admin wallet address",
+  "nft": 1234,
+  "nonce": "geometric nonce",
+  "sig": "sr25519 signature",
+  "pinHash": "SHA256(pin + serial_number)",
+  "wl": "<base64 encrypted whitelist blob>",
+  "magic": "V3"
+}
+```
+
+### Inner layer — whitelist blob
+
+The whitelist is encrypted independently from the vault metadata.
+
+Key derivation:
+
+```text
+IDKey = SHA256(serial_number + nft_token_id + admin_address)
+```
+
+Protected JSON fields:
+
+```json
+{
+  "entries": [...],
+  "locks": [...],
+  "magic": "WL"
+}
+```
+
+The encrypted whitelist blob is stored inside the outer vault. There is no separate `whitelist.enc`.
+
+### Encryption format
+
+Both layers use:
+
+- **AES-256-GCM**
+- **Random 96-bit IV** generated from `/dev/urandom`
+- **128-bit authentication tag**
+
+Binary layout:
+
+```text
+[IV(12)][AUTH_TAG(16)][CIPHERTEXT]
+```
+
+AES-GCM provides confidentiality, integrity, and authenticity in a single operation. Any modification to the ciphertext, IV, tag, or protected JSON causes decryption failure.
+
+### Atomic signed state
+
+Whitelist entries and route locks are not activated immediately.
+
+Changes are written into a provisional copy and become active only after an administrator signs the geometric nonce through the wallet.
+
+The signed vault is atomic:
+- either the entire vault is valid
+- or the entire update is rejected
+
+Partial updates are impossible.
+
+### Device label
+
+A plaintext file is stored alongside the vault:
+
+```text
+device_label.txt
+```
+
+It contains the human-readable device name, up to 20 characters.
 
 ---
 
@@ -138,11 +257,11 @@ A `device_label.txt` is stored in plaintext alongside the vault — it contains 
 
 ```cpp
 Core_Configure(&hw);          // GPIO, EEPROM callbacks
-Core_ConfigureStorage(&cfg);  // serial, key, RPC URL, paths
-Core_Init();                  // load vault, whitelist, init sessions
+Core_ConfigureStorage(&cfg);   // serial, key, RPC URL, paths
+Core_Init();                  // load signed vault, initialize session manager
 
 Core_RegisterRoute("relay",    CORE_ROLE_GUEST, "DOOR-1",         nullptr, true);
-Core_RegisterCommand("relay",  18, 2000);  // GPIO 18, 2s pulse
+Core_RegisterCommand("relay",   18, 2000);  // GPIO 18, 2s pulse
 Core_RegisterRoute("accesses", CORE_ROLE_ADMIN, "ACCESS CONTROL", "/accesscontrol", false);
 Core_RegisterRoute("admin",    CORE_ROLE_ADMIN, "ADMIN PANEL",    "/setting",        false);
 
@@ -159,22 +278,22 @@ Core_Shutdown();
 
 | Function | Description |
 |----------|-------------|
-| `Core_Configure(hw)` | Set GPIO/EEPROM callbacks. NULL = simulation mode |
-| `Core_ConfigureStorage(cfg)` | Inject runtime config. NULL fields are ignored |
-| `Core_Init()` | Load vault + whitelist, init session manager |
+| `Core_Configure(hw)` | Set GPIO/EEPROM callbacks. `NULL` = simulation mode |
+| `Core_ConfigureStorage(cfg)` | Inject runtime config. `NULL` fields are ignored |
+| `Core_Init()` | Load signed vault and initialize session manager |
 | `Core_Shutdown()` | Flush log, cleanup |
 | `Core_CleanExpired()` | Remove stale sessions (call every ~10 min) |
 
-### Route Registry
+### Route registry
 
 | Function | Description |
 |----------|-------------|
 | `Core_RegisterRoute(pid, role, title, redirect, allow_open)` | Register an access point |
 | `Core_RegisterCommand(pid, pin, ms)` | Bind GPIO relay to a route |
 | `Core_GetRoutes()` | List all registered routes (for admin panel) |
-| `Core_SetRouteMode(uuid, pid, mode, valid_until)` | Change route access level at runtime: NORMAL / OPEN / LOCKED (requires `allow_open=true`) |
+| `Core_SetRouteMode(uuid, pid, mode, valid_until)` | Change route access level at runtime: `NORMAL` / `OPEN` / `LOCKED` (requires `allow_open=true`) |
 
-### Auth Flow
+### Auth flow
 
 | Function | Description |
 |----------|-------------|
@@ -190,22 +309,25 @@ Core_Shutdown();
 |----------|-------------|
 | `Core_Admin_GetWhitelist(uuid)` | Full whitelist with temporal constraints |
 | `Core_Admin_GetPending(uuid)` | Last 10 unauthorized attempts |
-| `Core_Admin_ApproveAddress(uuid, addr, name)` | Promote pending → whitelist |
-| `Core_Admin_AddAddress(uuid, addr, name, from, to, schedule)` | Direct whitelist injection |
-| `Core_Admin_RemoveAddress(uuid, addr)` | Revoke access |
+| `Core_Admin_ApproveAddress(uuid, addr, name)` | Promote pending → whitelist (provisional) |
+| `Core_Admin_AddAddress(uuid, addr, name, from, to, schedule)` | Direct whitelist injection (provisional) |
+| `Core_Admin_RemoveAddress(uuid, addr)` | Revoke access (provisional) |
+| `Core_Admin_SaveWhitelist(uuid, pid)` | Start `ocu:10` signing session — signs and activates provisional list |
+| `Core_Admin_IsWhitelistDirty(uuid)` | Returns `{ dirty: true/false }` — provisional ≠ active? |
+| `Core_Admin_DiscardChanges(uuid)` | Revert provisional to last signed version |
 | `Core_Admin_UpdatePin(uuid, pin)` | Change emergency PIN (min 4 digits) |
-| `Core_Admin_GetSecurityStatus(uuid)` | PIN status, token ID, failed attempts |
+| `Core_Admin_GetSecurityStatus(uuid)` | PIN status, token ID, failed attempts, ownership flag |
 | `Core_Admin_GetLogs(uuid, n)` | Last N access log lines |
-| `Core_Admin_Reboot(uuid)` | Async reboot (500ms delay) |
+| `Core_Admin_Reboot(uuid)` | Async reboot (500 ms delay) |
 | `Core_Admin_GetNftInfo()` | Check token minted + owner (no auth required) |
 | `Core_Admin_GetDeviceLabel()` | Get device label (no auth required) |
-| `Core_Admin_SetDeviceLabel(uuid, label)` | Set device label, max 20 chars |
+| `Core_Admin_SetDeviceLabel(uuid, label)` | Set device label (max 20 chars) |
 
 ### Authorization
 
 | Function | Description |
 |----------|-------------|
-| `Core_GetRole(uuid)` | Returns `CORE_ROLE_ADMIN/GUEST/NONE` |
+| `Core_GetRole(uuid)` | Returns `CORE_ROLE_ADMIN / GUEST / NONE` |
 | `Core_CheckAccess(uuid, pid)` | Boolean role check against route requirement |
 | `Core_GetAddress(uuid)` | Returns wallet address associated with a UUID session |
 
@@ -216,23 +338,23 @@ Core_Shutdown();
 | `Core_GetVersion()` | SDK version string |
 | `Core_IsServerOnline()` | Gateway reachability |
 | `Core_GetTokenID()` | Token ID from EEPROM or override |
-| `Core_HandleHardwareReset()` | Call every ~100ms, handles ≥10s physical reset |
+| `Core_HandleHardwareReset()` | Call every ~100 ms, handles ≥10 s physical reset |
 
 ---
 
 ## Emergency Mode
 
 Emergency mode activates in two equivalent scenarios:
-- **Server unreachable** — gateway cannot be contacted
+- **Server unreachable** — the gateway cannot be contacted
 - **EEPROM missing** — token ID is 0, on-chain verification impossible
 
 In both cases the behavior is identical:
-- GUEST routes → accessible with PIN only
-- ADMIN routes → not accessible
+- `GUEST` routes → accessible with PIN only
+- `ADMIN` routes → not accessible
 - Whitelist → ignored
 - Route locks → ignored
 
-### PIN Lockout
+### PIN lockout
 
 Lockout progression after 3 failed attempts:
 
@@ -242,13 +364,13 @@ Lockout progression after 3 failed attempts:
 | 4 | 10 min |
 | 5 | 20 min |
 | 6 | 40 min |
-| 7+ | **240 min (cap)** |
+| 7+ | **240 min** (cap) |
 
 The counter is reset by:
-- A correct emergency PIN entry
-- A successful **ADMIN blockchain authentication**
+- a correct emergency PIN entry
+- a successful **ADMIN** blockchain authentication
 
-The PIN is stored as `SHA256(pin + serial_number)` — unique per device, immune to rainbow tables.
+The PIN is stored as `SHA256(pin + serial_number)` — unique per device and immune to rainbow tables.
 
 ---
 
@@ -256,17 +378,30 @@ The PIN is stored as `SHA256(pin + serial_number)` — unique per device, immune
 
 ```json
 {
-  "address":    "efXxxx...xxxYYYY",
-  "name":       "Mario Rossi",
+  "address": "efXxxx...xxxYYYY",
+  "name": "Mario Rossi",
   "valid_from": 1700000000,
-  "valid_to":   1800000000,
+  "valid_to": 1800000000,
   "schedule": [
     { "days": [1,2,3,4,5], "from": "08:00", "to": "18:00" }
   ]
 }
 ```
 
-All fields except `address` are optional and independent. `valid_from`/`valid_to` are Unix timestamps (0 = no limit). `days`: 0=Sun … 6=Sat.
+All fields except `address` are optional and independent.
+
+- `valid_from` / `valid_to` are Unix timestamps (`0` = no limit)
+- `days`: `0 = Sun` … `6 = Sat`
+
+Route locks are stored inside the signed whitelist blob as entries shaped like:
+
+```json
+{
+  "pid": "relay",
+  "mode": 2,
+  "valid_until": 0
+}
+```
 
 ---
 
@@ -274,55 +409,49 @@ All fields except `address` are optional and independent. `valid_from`/`valid_to
 
 On embedded targets it is recommended to separate the program directory from the data directory. The program directory lives on firmware flash (effectively read-only at runtime), while the data directory lives on a separate writable partition (eMMC, SD, tmpfs).
 
-```
+```text
 /firmware/                  ← program directory (firmware flash)
     ocu_core                ← CoreSDK executable / .so
-    user.pin                ← PIN hash, written at first PIN change
-    route_locks.json        ← persists LOCKED routes across reboots
-
-/data/                      ← data directory (writable partition)
-    vault.enc               ← ~200 bytes, admin address + token ID
-    whitelist.enc           ← grows with whitelist size
-    access_log.txt          ← grows over time, auto-rotated at 10MB
-    device_label.txt        ← 20 bytes max
     certs/
         cacert.pem          ← CA bundle for HTTPS RPC
+
+/data/                      ← data directory (writable partition)
+    vault.enc               ← signed vault (whitelist, PIN hash, route locks, admin identity)
+    access_log.txt          ← grows over time, auto-rotated at 10MB
+    device_label.txt        ← 20 chars max
 ```
 
-**Why separate them:**
+### Why separate them
 
-- The whitelist can grow unbounded — keeping it on firmware flash risks filling a limited partition
+- The vault can grow with whitelist size — keeping it on firmware flash risks filling a limited partition
 - Separating data makes factory reset trivial: wipe `/data/`, firmware is untouched
-- The PIN file stays on firmware flash — harder to tamper with than a data partition
 - Log rotation can be applied to `/data/` independently without touching the program
 
-> **Note:** `user.pin` and `route_locks.json` resolve relative to the executable.
-> The firmware partition must allow writes for these two files — this is the case
-> on most embedded boards (eMMC, SD). Read-only flash is rare outside certified
-> industrial deployments.
-
-**Configuration in `main_with_sdk.cpp`:**
+### Configuration in `main_with_sdk.cpp`
 
 ```cpp
 CoreStorageConfig cfg = {};
 cfg.log_path       = "/data/access_log.txt";
-cfg.vault_path     = "/data/vault.enc";       // whitelist.enc derives from this path
+cfg.vault_path     = "/data/vault.enc";
 cfg.ca_bundle_path = "/firmware/certs/cacert.pem";
 Core_ConfigureStorage(&cfg);
 ```
-
-> `user.pin` and `route_locks.json` are not configurable — they always resolve relative to the executable. This is intentional: keeping them in the firmware directory makes them as hard to tamper with as the binary itself.
 
 ---
 
 ## Security Notes
 
-- **No plaintext keys on disk.** Vault is AES-256-CBC with random IV per write.
+- **No plaintext keys on disk.** Vault is AES-256-GCM with random IV per write. Config strings in the binary are XOR-obfuscated post-injection with SHA256-derived keys.
 - **Signature verification** uses sr25519 via `sp_core` (Substrate-compatible).
-- **Nonce** = `OCU_` + 8 hex bytes from `/dev/urandom` + 10 decimal digits (Unix epoch in tenths of second, modulo 10^10). Session expires in 120s.
-- **NFT check** uses `state_getStorage` (token existence) + `state_getKeys` (owner lookup) over HTTPS RPC.
+- **Signed whitelist**: all changes are staged provisionally. They become active only after the admin signs the geometric nonce with their wallet. The vault stores the signature; any modification invalidates it.
+- **Nonce** = `OCU_` + 8 hex bytes from `/dev/urandom` + 10 decimal digits (Unix epoch in tenths of second, modulo `10^10`). Session expires in 120 s.
+- **NFT check** uses `state_queryStorageAt` with response verification — CID and TID extracted from the blockchain response are cross-checked against enclave-protected values. This prevents storage key substitution attacks.
+- **TLS certificate pinning** (TOFU) on the RPC endpoint. A mismatch triggers a security alert and blocks communication.
+- **SecureEnclave**: critical values (token ID, collection ID, RPC URL, PIN hash) are stored in `mprotect`-protected memory pages with shadow verification. Spatial encryption with per-function key rotation is used on protected variables.
+- **Code integrity**: the `.text` section hash is computed at boot and verified at every critical operation. Modification triggers `EnvCleanFactor = 0`, disabling all access.
+- **Security logging**: coded alerts (`S1`–`S32`) for debugger detection, timing anomalies, memory tampering, RPC MITM, and TLS certificate changes. Critical alerts advise against rebooting to preserve forensic state.
 - **EEPROM hot-swap**: removing the EEPROM triggers emergency mode — admin authentication is disabled, whitelist is ignored, emergency PIN is the only access method. Re-insert the EEPROM to restore full operation.
-- **Removable EEPROM as hardware kill switch**: if a wallet is compromised, remove the EEPROM → admin access disabled immediately, PIN mode only → transfer NFT to a new wallet → re-insert EEPROM → system fully operational with the new owner.
+- **Removable EEPROM as hardware kill switch**: if a wallet is compromised, remove the EEPROM → admin access disabled immediately → PIN mode only → transfer NFT to a new wallet → re-insert EEPROM → system fully operational with the new owner.
 
 ---
 
@@ -330,7 +459,7 @@ Core_ConfigureStorage(&cfg);
 
 When the server is offline, Core falls back to PIN mode — a single generic PIN for the device. For installations requiring room-level access control offline, an integrator can implement a second authentication layer.
 
-The correct architecture is to register the OCU route **without** a hardware command, and bind the relay to the second layer only after Core has verified the identity:
+The correct architecture is to register the OCU route **without** a hardware command and bind the relay to the second layer only after Core has verified the identity:
 
 ```cpp
 // OCU route — identity verification only, no GPIO bound
@@ -345,7 +474,7 @@ if (Core_CheckAccess(uuid, "auth"))
 
 This way the relay never fires on Core verification alone — it requires both layers to pass:
 
-```
+```text
 Step 1 — Pre-Core layer (integrator-managed)
     Physical keypad, badge reader, biometric — any mechanism
     └── if passes → calls Core_Start()
@@ -356,7 +485,6 @@ Step 2 — Core OCU (cryptographic gate)
 
 Step 3 — Relay
     Only fires if both Step 1 and Step 2 passed
-    └── implementator_fire_relay()
 ```
 
 Neither layer alone is sufficient. The pre-Core layer proves physical presence or knowledge. The Core layer proves cryptographic ownership.
@@ -370,7 +498,7 @@ The room PIN or secondary factor distribution is entirely the integrator's respo
 > - **During signing** — malware with sufficient privileges could intercept the private key in memory at the moment of use
 > - **During seed phrase backup** — the mnemonic is necessarily available in memory when displayed; malware with sufficient privileges could access it at this moment
 >
-> A compromised smartphone may therefore expose the private key itself — enabling an attacker to sign from any device silently and indefinitely. Smartphone hygiene is a critical component of the overall security posture, not an optional consideration.
+> A compromised smartphone may therefore expose the private key itself, enabling an attacker to sign from any device silently and indefinitely. Smartphone hygiene is a critical component of the overall security posture, not an optional consideration.
 >
 > For installations where this risk must be mitigated architecturally, two complementary approaches are recommended. The first is the use of an additional pre-Core factor: a PIN or physical interaction required directly on the device running CoreSDK — never transiting the smartphone — ensures that wallet compromise alone is not sufficient to gain access. Since this factor exists only on the CoreSDK device, it cannot be extracted remotely. The second is dedicating a clean smartphone used almost exclusively for OCU authentication, minimising the attack surface exposed to third-party applications and reducing the risk of silent compromise.
 >
@@ -380,9 +508,9 @@ The room PIN or secondary factor distribution is entirely the integrator's respo
 
 ## Configuration
 
-### `test.cfg` / `config.txt` (key=value)
+### `test.cfg` / `config.txt` (`key=value`)
 
-```
+```ini
 serial_number=ABC123
 device_key=mysecretkey
 rpc_url=https://rpc.matrix.blockchain.enjin.io
@@ -400,16 +528,16 @@ In production, values are injected directly into the binary by `inject_config.py
 
 This is the most important security property of the system.
 
-```
+```text
 NFT on-chain (Enjin Matrix)  ←  source of truth
     └─ sr25519 signature (wallet)
           └─ Core verifies locally on the device
                 └─ GPIO relay fires
 ```
 
-The OCU Server sits **outside this chain of trust**. Its only role is license verification and payload relay — it never sees the whitelist, never touches the hardware, and cannot authorize access on its own.
+The OCU Server sits **outside** this chain of trust. Its only role is license verification and payload relay — it never sees the whitelist, never touches the hardware, and cannot authorize access on its own.
 
-**What this means in practice:**
+### What this means in practice
 
 - The OCU Server can be compromised, shut down, or sold — no door opens
 - The producer cannot open a door they did not install
@@ -418,9 +546,9 @@ The OCU Server sits **outside this chain of trust**. Its only role is license ve
 
 The server is a **trusted courier, not a trusted authority**. It can delay or interrupt service (denial of access) but it cannot grant access that the chain has not already authorized.
 
-> **Honest disclaimer:** these properties hold only if the integrator uses the CoreSDK correctly and does not introduce backdoors in the firmware or bypass the signature verification. The trustless guarantee is a property of the architecture — it requires correct implementation to be meaningful. Auditing the CoreSDK source and the device firmware is the only way to verify it independently.
+> **Honest disclaimer:** these properties hold only if the integrator uses the CoreSDK correctly and does not introduce backdoors in the firmware or bypass signature verification. The trustless guarantee is a property of the architecture — it requires correct implementation to be meaningful. Auditing the CoreSDK source and the device firmware is the only way to verify it independently.
 
-**Comparison with traditional access control systems:**
+### Comparison with traditional access control systems
 
 | Property | Traditional | OCU |
 |----------|------------|-----|
@@ -437,76 +565,130 @@ Enterprise access control systems costing hundreds of thousands of euros cannot 
 
 ## Provisioning Guide
 
-This is the end-to-end flow to bring a new device from factory to field.
+This is the standard process used to prepare a device for deployment.
 
-### 1. Build and Flash
+### 1. Inject Device Configuration
 
-```bash
-python inject_config.py \
-  --serial ABC123 \
-  --device-key mysecretkey \
-  --collection-id 3333 \
-  --rpc-url https://rpc.matrix.blockchain.enjin.io \
-  --input CoreSDK.so \
-  --output CoreSDK_device_001.so
+Before flashing, device-specific configuration is injected directly into the compiled CoreSDK binary.
+
+The injector replaces the embedded placeholders with production values:
+
+```text
+serial_number
+device_key
+rpc_url
+collection_id
+default_pin
 ```
 
-Flash the output binary to the device. The device boots with `Core_Init()` reading config directly from the binary — no config file needed in production.
+Example:
 
-### 2. Create Collection (once per product line)
+```bash
+python3 inject_config.py \
+  --so libcoresdk.so \
+  --serial SN-ABC123 \
+  --key DEVICE_KEY \
+  --rpc https://rpc.matrix.blockchain.enjin.io \
+  --collection 3333 \
+  --pin 1234 \
+  --backup
+```
+
+After injection, the values are automatically obfuscated and the binary is updated in place.
+
+### 2. Batch Provisioning
+
+For manufacturing runs, multiple device binaries can be generated automatically.
+
+CSV mode:
+
+```bash
+python3 batch_inject.py \
+  --so libcoresdk.so \
+  --csv ocu_licenses.csv \
+  --rpc https://rpc.matrix.blockchain.enjin.io \
+  --collection 3333 \
+  --pin 1234 \
+  --out ./injected
+```
+
+API mode:
+
+```bash
+python3 batch_inject.py \
+  --so libcoresdk.so \
+  --serials serials.txt \
+  --api https://access.on-chain-unlock.net \
+  --token YOUR_API_KEY \
+  --rpc https://rpc.matrix.blockchain.enjin.io \
+  --collection 3333 \
+  --pin 1234 \
+  --out ./injected
+```
+
+In API mode, device keys are retrieved directly from the provisioning server and never stored in CSV files.
+
+### 3. Flash Device
+
+Flash the generated binary to the target hardware.
+
+At boot, CoreSDK loads its configuration directly from the embedded binary.
+
+### Security Notes
+
+Injected values are obfuscated before deployment and do not appear in plaintext through standard binary inspection tools such as `strings`.
+
+Configuration data is embedded directly into the firmware image, reducing deployment complexity and eliminating the need for external configuration files in production environments.
+
+### 2. Create collection (once per product line)
 
 Create a collection on Enjin Matrixchain using the Enjin Platform or the console explorer. The collection ID is shared across all devices of the same product line.
 
-- **Platform UI (no code):** [Quick Start Guide](https://docs.enjin.io/getting-started/quick-start-guide)
-- **GraphQL API:** [Creating Tokens](https://docs.enjin.io/docs/creating-tokens)
-- **Low-level extrinsic:** [MultiToken Pallet](https://docs.enjin.io/docs/multitoken-pallet)
-- **Console Explorer:** [console.enjin.io](https://console.enjin.io/)
+- **Platform UI (no code):** Quick Start Guide
+- **GraphQL API:** Creating Tokens
+- **Low-level extrinsic:** MultiToken Pallet
+- **Console Explorer:** `console.enjin.io`
 
-To create an NFT (supply = 1), set `cap: collapsing supply = 1` in the mint params.
+To create an NFT (supply = 1), set the mint parameters so that the token supply collapses to 1.
 
-### 3. Mint Token (one per device)
+### 3. Mint token (one per device)
 
 Mint one token per device using the Wallet Daemon. The daemon signs and broadcasts the mint transaction automatically.
-
-- **Wallet Daemon setup:** [Quick Start Guide — Wallet Daemon](https://docs.enjin.io/getting-started/quick-start-guide)
-- **Minting guide:** [Minting a Token](https://docs.enjin.io/docs/minting-a-token)
 
 ```json
 {
   "node": "wss://rpc.matrix.blockchain.enjin.io:443",
-  "api":  "https://platform.enjin.io:443/graphql"
+  "api": "https://platform.enjin.io:443/graphql"
 }
 ```
 
 The daemon wallet holds the producer's key and signs mint + transfer transactions. Keep the seed phrase secure.
 
-### 4. Configure the Provisioning Server
+### 4. Configure the provisioning server
 
-Set up the producer's provisioning endpoint (`POST /provision`) backed by the Wallet Daemon. The server receives `{ serial, collection_id, token_id, owner_address }` from the device, queries the on-chain state independently via RPC, and mints or transfers the NFT accordingly (see Zero-Touch Provisioning below).
+Set up the producer's provisioning endpoint (`POST /provision`) backed by the Wallet Daemon. The server receives `{ serial, collection_id, token_id, owner_address }` from the device, queries on-chain state independently via RPC, and mints or transfers the NFT accordingly.
 
-How the device authenticates the provisioning request is an implementation choice left to the producer — serial+key, a shared secret, a one-time token, or any other mechanism that fits the deployment model. The Core does not enforce a specific authentication scheme for this step.
+How the device authenticates the provisioning request is an implementation choice left to the producer — serial + key, a shared secret, a one-time token, or any other mechanism that fits the deployment model. The Core does not enforce a specific authentication scheme for this step.
 
-### 5. Customer Receives Kit
+### 5. Customer receives kit
 
-The customer installs the OCU Wallet app and generates or imports a wallet. On first boot the device registers a temporary `/claim` route, the customer scans the QR, and the provisioning server handles the rest automatically. From the moment NFT ownership settles on-chain, `Core_Poll()` will verify their wallet as ADMIN and the `/claim` route is permanently removed.
+The customer installs the OCU Wallet app and generates or imports a wallet. On first boot the device registers a temporary `/claim` route, the customer scans the QR, and the provisioning server handles the rest automatically. From the moment NFT ownership settles on-chain, `Core_Poll()` verifies the wallet as `ADMIN` and the `/claim` route is permanently removed.
 
 ### 6. FuelTank (optional — subsidize transfer fees)
 
 To cover ENJ transaction fees for the customer during token transfer, set up a FuelTank with a `WhitelistedCollections` rule for your collection ID. This way the producer pays the fees and the customer receives the NFT without needing ENJ.
 
-- **FuelTank guide:** [Using Fuel Tanks](https://docs.enjin.io/guides/platform/managing-users/using-fuel-tanks)
-- **FuelTank pallet:** [Fuel Tank Pallet](https://docs.enjin.io/enjin-blockchain/enjin-matrixchain/fuel-tank-pallet)
+- **FuelTank guide:** Using Fuel Tanks
+- **FuelTank pallet:** Fuel Tank Pallet
 - **Require Token rule:** subsidize only if the user holds a specific NFT — useful for future feature unlocks
 
-### Zero-Touch Provisioning (example flow)
+### Zero-touch provisioning (example flow)
 
 This is one possible fully automated provisioning flow that requires no out-of-band communication between producer and customer. Each integrator can implement their own variant.
 
 The key insight is that a `CORE_ROLE_NONE` route logs the signing wallet address even without an NFT — it just lets anyone in and records who signed. This can be used to capture the future admin's address automatically.
 
-**Flow:**
-
-```
+```text
 Device (first boot, no vault)
   │
   ├─ registers temporary NONE route: /claim
@@ -523,15 +705,15 @@ Device (first boot, no vault)
   │   └─ three-way decision (see below)
   │
   ├─ firmware polls Core_Admin_GetNftInfo() until owner settled
-  ├─ vault is written (Core now has an ADMIN)
+  ├─ vault is written (Admin Active)
   └─ /claim route removed — provisioning complete
 ```
 
-#### Server-Side Decision Logic
+#### Server-side decision logic
 
-When the device hits `POST /provision` with `{ serial, collection_id, token_id, owner_address }`, the producer's server independently queries the on-chain state via its own RPC connection before acting — it does not trust the device's reported state. This independent verification is what makes the three-way decision trustless:
+When the device hits `POST /provision` with `{ serial, collection_id, token_id, owner_address }`, the producer's server independently queries the on-chain state via its own RPC connection before acting — it does not trust the device's reported state.
 
-```
+```text
                         [ POST /provision ]
                         { serial, token_id, owner_address }
                                  │
@@ -540,40 +722,31 @@ When the device hits `POST /provision` with `{ serial, collection_id, token_id, 
        ┌─────────────────────────┼─────────────────────────┐
        ▼                         ▼                         ▼
   [ STATE A ]               [ STATE B ]               [ STATE C ]
- Not Yet Minted         Owned by Manufacturer      Already Claimed
+ Not yet minted         Owned by manufacturer      Already claimed
        │                         │                         │
- MINT to User            TRANSFER to User          REJECT (409)
+ MINT to user            TRANSFER to user          REJECT (409)
        │                         │                         │
        ▼                         ▼                         ▼
  HTTP 201 Created           HTTP 200 OK            HTTP 409 Conflict
 ```
 
-**State A — Not yet minted**
+**State A — Not yet minted**  
 The token does not exist on-chain. The server mints directly to `owner_address`.
-```json
-{ "status": "minting_initiated", "tx_hash": "0x..." }
-```
 
-**State B — Pre-minted, held by manufacturer**
-The NFT exists but is still in the manufacturer's treasury wallet (warehouse or retail stock). The server transfers it directly to `owner_address`.
-```json
-{ "status": "transfer_initiated", "tx_hash": "0x..." }
-```
+**State B — Pre-minted, held by manufacturer**  
+The NFT exists but is still in the manufacturer's treasury wallet. The server transfers it directly to `owner_address`.
 
-**State C — Already owned by a third party**
+**State C — Already owned by a third party**  
 The NFT is owned by a wallet that is neither the manufacturer nor the claiming user. This indicates the device is already provisioned or an attacker is attempting a replay. The server rejects immediately.
-```json
-{ "error": "DEVICE_ALREADY_CLAIMED", "message": "This hardware token has already been provisioned to another wallet." }
-```
 
-#### Firmware Reaction Matrix
+#### Firmware reaction matrix
 
 While the server processes States A or B, the firmware handles the HTTP responses as follows:
 
-- **On HTTP 409/403 (State C):** The firmware aborts the sequence, purges the temporary `/claim` session, triggers a local hardware error state, and keeps the device unprovisioned.
-- **On HTTP 200/201 (States A or B):** The firmware enters a secure polling loop using `Core_Admin_GetNftInfo()`. Once NFT ownership has settled on-chain to `owner_address`, it writes the vault (Admin Active) and permanently removes the `/claim` route.
+- **On HTTP 409/403 (State C):** the firmware aborts the sequence, purges the temporary `/claim` session, triggers a local hardware error state, and keeps the device unprovisioned
+- **On HTTP 200/201 (States A or B):** the firmware enters a secure polling loop using `Core_Admin_GetNftInfo()`. Once NFT ownership has settled on-chain to `owner_address`, it writes the vault and permanently removes the `/claim` route
 
-**Implementation sketch in `main_with_sdk.cpp`:**
+#### Implementation sketch in `main_with_sdk.cpp`
 
 ```cpp
 // Only register /claim if no vault exists yet
@@ -586,7 +759,7 @@ if (!Core_Init()) {
 }
 ```
 
-The `/claim` route exists only during the provisioning window. Once the vault is written and the NFT is on-chain, the device reboots into normal operation with ADMIN authentication active. The route is never registered again.
+The `/claim` route exists only during the provisioning window. Once the vault is written and the NFT is on-chain, the device reboots into normal operation with `ADMIN` authentication active. The route is never registered again.
 
 > **Note:** this is a reference design, not a mandatory pattern. The producer server endpoint, the polling strategy, the claim window duration, and the hardware error signaling are all implementation choices left to the integrator.
 
@@ -596,32 +769,34 @@ The `/claim` route exists only during the provisioning window. Once the vault is
 
 | Resource | URL |
 |----------|-----|
-| Enjin Docs | https://docs.enjin.io |
-| Matrixchain overview | https://docs.enjin.io/enjin-blockchain/enjin-matrixchain |
-| MultiToken pallet | https://docs.enjin.io/docs/multitoken-pallet |
-| Minting guide | https://docs.enjin.io/docs/minting-a-token |
-| FuelTank guide | https://docs.enjin.io/guides/platform/managing-users/using-fuel-tanks |
-| FuelTank pallet | https://docs.enjin.io/enjin-blockchain/enjin-matrixchain/fuel-tank-pallet |
-| Console explorer | https://console.enjin.io |
-| RPC endpoint (firmware) | https://rpc.matrix.blockchain.enjin.io |
-| RPC endpoint (wallet) | wss://rpc.matrix.blockchain.enjin.io |
-| Canary testnet faucet | https://docs.enjin.io/getting-started/using-enjin-coin |
+| Enjin Docs | `https://docs.enjin.io` |
+| Matrixchain overview | `https://docs.enjin.io/enjin-blockchain/enjin-matrixchain` |
+| MultiToken pallet | `https://docs.enjin.io/docs/multitoken-pallet` |
+| Minting guide | `https://docs.enjin.io/docs/minting-a-token` |
+| FuelTank guide | `https://docs.enjin.io/guides/platform/managing-users/using-fuel-tanks` |
+| FuelTank pallet | `https://docs.enjin.io/enjin-blockchain/enjin-matrixchain/fuel-tank-pallet` |
+| Console explorer | `https://console.enjin.io` |
+| RPC endpoint (firmware) | `https://rpc.matrix.blockchain.enjin.io` |
+| RPC endpoint (wallet) | `wss://rpc.matrix.blockchain.enjin.io` |
+| Canary testnet faucet | `https://docs.enjin.io/getting-started/using-enjin-coin` |
 
 ---
 
 ## Audit Trail
 
-OCU produces two distinct and independent audit trails:
+OCU produces two distinct and independent audit trails.
 
-**On-chain audit trail (immutable)**
-NFT ownership events — mint, transfer, revocation — are recorded on Enjin Matrixchain. Public, immutable, verifiable by anyone without trusting the device or the vendor. This is the cryptographic proof of who owns the access right at any given time.
+### On-chain audit trail (immutable)
 
-**Local access log (owner-controlled)**
-Physical access events — who entered, when, with which role — are logged locally on the device. This log is under the control of the device owner, subject to their data retention policies and applicable GDPR obligations. It is not transmitted anywhere by the Core.
+NFT ownership events — mint, transfer, revocation — are recorded on Enjin Matrixchain. Public, immutable, and verifiable by anyone without trusting the device or the vendor. This is the cryptographic proof of who owns the access right at any given time.
 
-**Access Log Format:**
+### Local access log (owner-controlled)
 
-```
+Physical access events — who entered, when, and with which role — are logged locally on the device. This log is under the control of the device owner, subject to their retention policy and applicable GDPR obligations. It is not transmitted anywhere by the Core.
+
+### Access log format
+
+```text
 [2026-05-16 12:34:56] PID: relay | Addr: efXxxx...xYYY | Status: SUCCESS | TYPE: ADMIN
 [2026-05-16 12:35:10] PID: relay | Addr: efXxxx...xZZZ | Status: SUCCESS | TYPE: GUEST
 [2026-05-16 12:36:00] PID: relay | Addr: efXxxx...xWWW | Status: SUCCESS | TYPE: NONE_ACCESS

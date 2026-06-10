@@ -968,7 +968,6 @@ async function startAuth() {
         btn.innerText = 'Initializing...';
         
         stopTimers(); 
-        // NON chiamare clear() qui. Aspettiamo di avere i nuovi dati.
 
         const res = await fetchWithTimeout('/api/hw/start/' + CURRENT_PID, {}, 6000);
         
@@ -1022,7 +1021,6 @@ async function startAuth() {
             pollStatus(); 
 
         } else {
-            // Se proprio non c'è il nonce nel JSON, allora è un fallimento totale
             throw new Error('No nonce in response');
         }
 
