@@ -447,8 +447,7 @@ Core_ConfigureStorage(&cfg);
 - **Nonce** = `OCU_` + 8 hex bytes from `/dev/urandom` + 10 decimal digits (Unix epoch in tenths of second, modulo `10^10`). Session expires in 120 s.
 - **NFT check** uses `state_queryStorageAt` with response verification — CID and TID extracted from the blockchain response are cross-checked against enclave-protected values. This prevents storage key substitution attacks.
 - **TLS certificate pinning** (TOFU) on the RPC endpoint. A mismatch triggers a security alert and blocks communication.
-- **SecureEnclave**: critical values (token ID, collection ID, RPC URL, PIN hash) are stored in `mprotect`-protected memory pages with shadow verification. Spatial encryption with per-function key rotation is used on protected variables.
-- **Code integrity**: the `.text` section hash is computed at boot and verified at every critical operation. Modification triggers `EnvCleanFactor = 0`, disabling all access.
+- **SecureEnclave**: protected memory pages with shadow verification.
 - **Security logging**: coded alerts (`S1`–`S32`) for debugger detection, timing anomalies, memory tampering, RPC MITM, and TLS certificate changes. Critical alerts advise against rebooting to preserve forensic state.
 - **EEPROM hot-swap**: removing the EEPROM triggers emergency mode — admin authentication is disabled, whitelist is ignored, emergency PIN is the only access method. Re-insert the EEPROM to restore full operation.
 - **Removable EEPROM as hardware kill switch**: if a wallet is compromised, remove the EEPROM → admin access disabled immediately → PIN mode only → transfer NFT to a new wallet → re-insert EEPROM → system fully operational with the new owner.
