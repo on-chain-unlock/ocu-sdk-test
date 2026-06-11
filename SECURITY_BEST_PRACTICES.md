@@ -343,6 +343,25 @@ These four values are what the Core needs to verify NFT ownership on-chain and a
 > **This feature is included in CoreSDK but currently in beta.**
 >
 > If you encounter any issue — boot failures, TA loading errors, verification mismatches, or unexpected behavior — please report it to the OCU team with your board model, OP-TEE version, and kernel version.
+---
+
+## 10. Secure Boot
+
+On ARM64 targets with U-Boot, enable Secure Boot to verify the kernel and firmware signature before execution. This ensures that an attacker with physical access cannot replace the OS or the CoreSDK binary with a modified version that boots normally.
+
+Without Secure Boot, an attacker can:
+- Replace the SD card / eMMC image with a modified OS that disables all software protections
+- Boot a custom kernel that ignores file permissions, GPIO restrictions, and TrustZone isolation
+
+With Secure Boot enabled, the boot chain is:
+ROM bootloader (immutable) → verifies U-Boot signature
+→ U-Boot (signed) → verifies kernel signature
+→ Kernel (signed) → mounts read-only firmware partition
+→ CoreSDK starts with all protections intact
+
+Secure Boot configuration is board-specific. Refer to your SoC vendor documentation for fuse programming and key enrollment. Once fuses are burned, the boot chain cannot be bypassed without hardware-level attacks on the SoC itself.
+
+> **Note:** Secure Boot protects the boot chain. It does not replace runtime protections (user isolation, GPIO restrictions, TrustZone). Both layers are complementary — Secure Boot prevents tampering before the OS loads, runtime hardening prevents tampering after.
 
 ## Summary Checklist
 
@@ -361,7 +380,7 @@ These four values are what the Core needs to verify NFT ownership on-chain and a
 | 11 | Signed OTA updates | Medium |
 | 12 | Unnecessary services disabled | Medium |
 | 13 | TrustZone TEE (beta) | Optional |
-
+| 14 | Secure Boot with signed kernel and firmware | High |
 ---
 
 *This document is intended for integrators deploying OCU CoreSDK on embedded Linux targets. It does not cover Windows development environments. For questions or enterprise-specific hardening requirements, contact the OCU team.*
