@@ -1,12 +1,16 @@
-# test.cfg — Configurazione di sviluppo per CoreSDK
+# test.cfg — Development configuration for CoreSDK
 # ---------------------------------------------------
-# Usato automaticamente da Core_Init() quando i placeholder del binario
-# non sono stati iniettati (es. build locale in WSL).
+# Automatically used by Core_Init() when the binary placeholders 
+# have not been injected (e.g., local build in WSL).
 #
-# NON usare in produzione. NON committare con credenziali reali.
-# Aggiungere a .gitignore se contiene dati sensibili.
+# DO NOT use in production. DO NOT commit with real credentials.
+# Add to .gitignore if it contains sensitive data.
 #
-# Formato: key=value (no spazi attorno a =, no virgolette)
+# NOTE: In this GitHub example, 'serial' and 'key' fields can be left 
+# empty, as this library build is compiled in 'test mode' and utilizes 
+# a pre-configured authentication mechanism for development.
+#
+# Format: key=value (no spaces around =, no quotes)
 
 #serial_number=
 #device_key=
