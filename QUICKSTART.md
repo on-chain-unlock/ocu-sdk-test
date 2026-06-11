@@ -65,8 +65,16 @@ make -j$(nproc)
 
 ## Step 4 — Run
 
+### Windows
+
+```powershell
+.\Release\ocu_example.exe
+```
+
+### Linux ARM64
+
 ```bash
-./ocu_core
+./ocu_example
 ```
 
 You should see:
