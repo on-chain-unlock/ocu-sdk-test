@@ -1,5 +1,5 @@
 /**
- * CoreSDK.h  —  On-Chain Unlock · Core Library  v1.3.0
+ * CoreSDK.h  —  On-Chain Unlock · Core Library  v1.3.1
  * -------------------------------------------------------
  * Single public header. The integrator includes only this file.
  * All internals (Logic, Storage, SecureVault, Hardware, SessionManager)
@@ -37,6 +37,16 @@
  *   TT (2 hex): 00=GUEST 01=GUEST+redirect 02=ADMIN 03=ADMIN+redirect 04=NONE
  *   Same payload used for QR image, NFC NDEF record, and DeepLink.
  *
+ *  WHAT'S NEW IN v1.3.1: 
+ *  - RPC cert cross-check: server-signed cert hash (ECDSA P-256) verified * against direct RPC connection at every session start 
+ *  - Auto-recovery: device resolves cert changes without reboot via poll probe
+ *  - Security codes updated: S21 = cross-check failed, S22 = signature invalid
+ *  - Core_GetOwnershipStatus: public endpoint for admin ownership flag
+ * 
+ *    NOTE (v1.3.1): The RPC URL must be https://rpc.matrix.blockchain.enjin.io
+ *    Cert cross-check requires the device and the OCU gateway to use the same
+ *    RPC endpoint. Do not change this value.
+ * 
  * WHITELIST MODEL (v1.3.0):
  *   All whitelist modifications (add, remove, route locks) are staged in a
  *   provisional copy. Changes become active ONLY after the admin signs the
@@ -238,8 +248,9 @@ void Core_CleanExpired(void);
  *               (cameras, control panels, etc.).
  *               Only affects GUEST routes — ADMIN routes are always
  *               protected and cannot be opened.
+ * RESERVED: "whitelist" is used internally for signed whitelist commits. Do not register a route with this pid.
  *
- * Returns false if pid is reserved.
+ * Returns false if pid is empty or already registered.
  */
 bool Core_RegisterRoute(const char* pid,
                         CoreRole    role,
@@ -639,14 +650,22 @@ bool Core_IsServerOnline(void);
 
 /** Token ID from EEPROM or override. 0 = not configured. */
 uint32_t Core_GetTokenID(void);
-
+/**
+ * Core_GetOwnershipStatus — public endpoint, no authentication required.
+ * Returns whether the admin wallet that signed the active whitelist
+ * still owns the NFT. Intended for display on the login page.
+ *
+ * JSON response:
+ * {
+ *   "admin_ownership_lost": bool
+ * }
+ */
+CoreResult Core_GetOwnershipStatus(void);
 /**
  * Call from the main loop every ~100ms.
  * Handles the physical factory reset button (≥10s hold = reset + reboot).
  */
 void Core_HandleHardwareReset(void);
-
-
 #ifdef __cplusplus
 } /* extern "C" */
 #endif

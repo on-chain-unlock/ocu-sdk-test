@@ -470,7 +470,15 @@ inline void SetupRoutes(httplib::Server& svr,
         res.status = r.http_code;
         res.set_content(r.json_payload, "application/json");
     });
-
+    // GET /api/ownership
+    // Public endpoint — no authentication required.
+    // Returns whether the admin that signed the whitelist still owns the NFT.
+    // Used by the login page to show an ownership warning banner.
+    svr.Get("/api/ownership", [](const httplib::Request&, httplib::Response& res) {
+        CoreResult r = Core_GetOwnershipStatus();
+        res.status = r.http_code;
+        res.set_content(r.json_payload, "application/json");
+    });
     // =========================================================================
     // 4. LOGOUT
     // =========================================================================

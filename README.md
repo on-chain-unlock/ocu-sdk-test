@@ -1,7 +1,16 @@
-# OCU CoreSDK — On-Chain Unlock
-**v1.3.0** — Blockchain-based physical access control
+# OCU CoreSDK — On-Chain-Unlock
+**v1.3.1** — Blockchain-based physical access control
 
 ## Changelog
+
+### v1.3.1
+- **RPC cert cross-check**: server-signed cert hash (ECDSA P-256) verified against direct RPC connection at every session start
+- **CryptoMaze**: anti-debug custom on sr25519 signature verification
+- **Auto-recovery**: device resolves cert changes without reboot via poll probe
+- `Core_GetOwnershipStatus`: public endpoint for admin ownership flag on login page
+- `Security codes updated`: S21 = cross-check failed, S22 = signature invalid
+- `Core_RegisterRoute`: rejects reserved pid "whitelist"
+- **BREAKING**: RPC URL must be `https://rpc.matrix.blockchain.enjin.io` — custom RPC endpoints are no longer supported (cert cross-check requirement)
 
 ### v1.3.0
 - **Signed whitelist**: all changes (add, remove, route locks) are staged in a provisional copy and activated only after the admin signs the geometric nonce with their wallet (sr25519)

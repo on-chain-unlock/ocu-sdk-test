@@ -198,6 +198,11 @@ inline std::string getTemplate(const std::string& viewType) {
 </head>
 <body>
 <div class="max-w-md w-full">
+    <div id="ownershipWarning" style="display:none;background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.3);border-radius:8px;padding:14px 18px;margin-bottom:16px;text-align:center">
+        <span style="font-family:monospace;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:rgb(239,68,68)">
+            &#x26A0; OWNERSHIP ALERT — The admin wallet no longer owns the access NFT. Contact the device owner.
+        </span>
+    </div>
     <div class="relative flex flex-col items-center justify-center py-6 px-8 glass rounded-3xl border border-white/10 border-dashed min-h-[480px] shadow-2xl space-y-6 text-center">
         <div class="w-full flex flex-col items-center">
             <span id="nonce-display" class="text-[10px] text-white/40 uppercase tracking-[0.4em] px-4 break-all leading-relaxed transition-colors duration-300">
@@ -1044,7 +1049,19 @@ async function startAuth() {
         }
     }
 }
+async function checkOwnership() {
+    try {
+        const r = await fetch("/api/ownership");
+        if (r.ok) {
+            const d = await r.json();
+            if (d.admin_ownership_lost) {
+                document.getElementById("ownershipWarning").style.display = "block";
+            }
+        }
+    } catch(e) {}
+}
 
+checkOwnership();
 </script>
 </body></html>
 )P3";
