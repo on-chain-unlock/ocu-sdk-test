@@ -3,6 +3,9 @@
 
 ## Changelog
 
+### v1.3.2
+- **Thread & buffer optimization**: internal thread management and memory buffers enhanced for maximum stability under heavy load
+
 ### v1.3.1
 - **RPC cert cross-check**: server-signed cert hash (ECDSA P-256) verified against direct RPC connection at every session start
 - **CryptoMaze**: anti-debug custom on sr25519 signature verification

@@ -37,6 +37,9 @@
  *   TT (2 hex): 00=GUEST 01=GUEST+redirect 02=ADMIN 03=ADMIN+redirect 04=NONE
  *   Same payload used for QR image, NFC NDEF record, and DeepLink.
  *
+ *  WHAT'S NEW IN v1.3.2: 
+ *  - Thread & buffer optimization: internal thread management and memory buffers enhanced for maximum stability under heavy load
+ *  
  *  WHAT'S NEW IN v1.3.1: 
  *  - RPC cert cross-check: server-signed cert hash (ECDSA P-256) verified * against direct RPC connection at every session start 
  *  - Auto-recovery: device resolves cert changes without reboot via poll probe
