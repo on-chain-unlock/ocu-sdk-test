@@ -57,6 +57,46 @@ An attacker who compromises the web-facing application (XSS, RCE, dependency exp
 
 Bypassing the SDK requires compromising the `ocu` user or escalating to root. Standard Linux ACLs make this a distinct, harder attack.
 
+### Kernel-level ptrace hardening
+
+Even with user isolation in place, restrict ptrace at the kernel level to prevent any process from attaching to the CoreSDK process:
+
+```bash
+# /etc/sysctl.d/99-ocu.conf
+kernel.yama.ptrace_scope = 2   # only root can ptrace — no cross-user attach
+kernel.dmesg_restrict = 1      # hide kernel messages from unprivileged users
+kernel.kptr_restrict = 2       # hide kernel pointer addresses
+```
+
+```bash
+sudo sysctl -p /etc/sysctl.d/99-ocu.conf
+```
+
+With `ptrace_scope = 2`, even a process running as the same user cannot attach a debugger to CoreSDK. This is complementary to the Core's internal `IsBeingTraced()` check — the OS blocks the attach before the Core even needs to detect it.
+
+### Seccomp syscall filtering
+
+Restrict the CoreSDK process to only the syscalls it actually needs. If the process is ever exploited, the attacker cannot use dangerous syscalls even with code execution:
+
+```bash
+# /etc/systemd/system/ocu-core.service
+[Service]
+Type=simple
+User=ocu
+ExecStart=/opt/ocu/ocu_core
+SystemCallFilter=@system-service
+SystemCallFilter=~@debug @raw-io @reboot @swap @obsolete
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=yes
+WatchdogSec=30
+Restart=always
+RestartSec=5
+```
+
+`SystemCallFilter=~@debug` blocks `ptrace`, `process_vm_readv`, and related syscalls at the kernel level — independently of the application-level check.
+
 ---
 
 ## 2. CoreSDK Binary Integrity Verification
@@ -101,6 +141,7 @@ if (actual != expected) {
 This is complementary to the Core's internal `.text` hash verification — the integrator verifies the whole binary from outside, the Core verifies its own code section from inside.
 
 > **Note:** After any OTA update that replaces the CoreSDK binary, the integrity hash must be recomputed and distributed alongside the update package.
+
 ---
 
 ## 3. EEPROM Physical Security
@@ -288,11 +329,50 @@ The `noexec` flag on `/data` prevents execution of any binary placed in the data
 
 ### Restrict vault and log permissions
 
+The CoreSDK writes all events to a single log file whose path is configured by the integrator via `Storage::SetLogPath()` in `main_with_sdk.cpp`. The default path is `access_log.txt` relative to the working directory. Set it to a fixed path under `/data/ocu/` and restrict permissions accordingly:
+
+```cpp
+// main_with_sdk.cpp
+Storage::SetLogPath("/data/ocu/access_log.txt");
+```
+
 ```bash
-chmod 600 /data/ocu/vault.enc
+# Restrict access to the log and vault files
 chmod 600 /data/ocu/access_log.txt
+chmod 600 /data/ocu/vault.enc
 chown ocu:ocu /data/ocu/*
 ```
+
+### Log integrity
+
+The CoreSDK uses time-decorrelated async logging to make it harder to correlate security events with specific actions. At the filesystem level, protect the log file from tampering with append-only mode:
+
+```bash
+# Set append-only — even root cannot delete or overwrite existing entries
+sudo chattr +a /data/ocu/access_log.txt
+```
+
+For high-security deployments, forward logs to a remote syslog server so that a compromised device cannot destroy evidence:
+
+```bash
+# /etc/rsyslog.d/99-ocu.conf
+if $programname == 'ocu_core' then @@192.168.1.100:514
+```
+
+### Memory locking
+
+The CoreSDK holds runtime values in RAM (Token ID, Collection ID, RPC URL, PIN hash) that are used to verify on-chain ownership and preserve integrity checks. Under memory pressure, the OS may page these values to the swap partition, where they could be read or tampered with offline. Lock process memory at startup to prevent this:
+
+```cpp
+// main_with_sdk.cpp — before Core_Init()
+#include <sys/mman.h>
+
+if (mlockall(MCL_CURRENT | MCL_FUTURE) != 0) {
+    syslog(LOG_WARNING, "mlockall failed — runtime values may be paged to swap");
+}
+```
+
+This ensures that values held in the SecureEnclave shadow memory and verified at runtime are never written to disk, preserving the integrity guarantees the Core depends on.
 
 ---
 
@@ -327,6 +407,7 @@ RestartSec=5
 ```
 
 If the CoreSDK process hangs or crashes, systemd restarts it within 5 seconds. If the entire system hangs, the hardware watchdog reboots after 30 seconds.
+
 ---
 
 ## 9. TrustZone Integration (Beta)
@@ -343,6 +424,7 @@ These four values are what the Core needs to verify NFT ownership on-chain and a
 > **This feature is included in CoreSDK but currently in beta.**
 >
 > If you encounter any issue — boot failures, TA loading errors, verification mismatches, or unexpected behavior — please report it to the OCU team with your board model, OP-TEE version, and kernel version.
+
 ---
 
 ## 10. Secure Boot
@@ -354,14 +436,19 @@ Without Secure Boot, an attacker can:
 - Boot a custom kernel that ignores file permissions, GPIO restrictions, and TrustZone isolation
 
 With Secure Boot enabled, the boot chain is:
+
+```
 ROM bootloader (immutable) → verifies U-Boot signature
 → U-Boot (signed) → verifies kernel signature
 → Kernel (signed) → mounts read-only firmware partition
 → CoreSDK starts with all protections intact
+```
 
 Secure Boot configuration is board-specific. Refer to your SoC vendor documentation for fuse programming and key enrollment. Once fuses are burned, the boot chain cannot be bypassed without hardware-level attacks on the SoC itself.
 
 > **Note:** Secure Boot protects the boot chain. It does not replace runtime protections (user isolation, GPIO restrictions, TrustZone). Both layers are complementary — Secure Boot prevents tampering before the OS loads, runtime hardening prevents tampering after.
+
+---
 
 ## Summary Checklist
 
@@ -369,18 +456,25 @@ Secure Boot configuration is board-specific. Refer to your SoC vendor documentat
 |---|----------|----------|
 | 1 | Dedicated `ocu` user with exclusive GPIO/I2C access | **Critical** |
 | 2 | CoreSDK listens on localhost only, integrator proxies externally | **Critical** |
-| 3 | Binary integrity hash verified at startup | High |
-| 4 | EEPROM write-protected and physically secured | High |
-| 5 | GPIO restricted to `ocu` user via udev rules | **Critical** |
-| 6 | SSH disabled or key-only on management interface | **Critical** |
-| 7 | Firewall drops all except 443 and management SSH | High |
-| 8 | Firmware partition mounted read-only | High |
-| 9 | Data partition mounted with `noexec` | Medium |
-| 10 | Watchdog and automatic restart configured | Medium |
-| 11 | Signed OTA updates | Medium |
-| 12 | Unnecessary services disabled | Medium |
-| 13 | TrustZone TEE (beta) | Optional |
-| 14 | Secure Boot with signed kernel and firmware | High |
+| 3 | `kernel.yama.ptrace_scope = 2` — block debugger attach at OS level | **Critical** |
+| 4 | Seccomp syscall filter via systemd — block `@debug` syscalls | **Critical** |
+| 5 | Binary integrity hash verified at startup | High |
+| 6 | EEPROM write-protected and physically secured | High |
+| 7 | GPIO restricted to `ocu` user via udev rules | **Critical** |
+| 8 | SSH disabled or key-only on management interface | **Critical** |
+| 9 | Firewall drops all except 443 and management SSH | High |
+| 10 | Firmware partition mounted read-only | High |
+| 11 | Data partition mounted with `noexec` | Medium |
+| 12 | Log path configured via `SetLogPath()`, file restricted to `ocu` user | High |
+| 13 | Log file set append-only with `chattr +a` | Medium |
+| 14 | Remote syslog for tamper-evident log forwarding | Medium |
+| 15 | `mlockall` to prevent runtime values from being paged to swap | High |
+| 16 | Watchdog and automatic restart configured | Medium |
+| 17 | Signed OTA updates | Medium |
+| 18 | Unnecessary services disabled | Medium |
+| 19 | TrustZone TEE (beta) | Optional |
+| 20 | Secure Boot with signed kernel and firmware | High |
+
 ---
 
 *This document is intended for integrators deploying OCU CoreSDK on embedded Linux targets. It does not cover Windows development environments. For questions or enterprise-specific hardening requirements, contact the OCU team.*

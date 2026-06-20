@@ -1,7 +1,10 @@
 # OCU CoreSDK — On-Chain-Unlock
-**v1.3.1** — Blockchain-based physical access control
+**v1.3.3** — Blockchain-based physical access control
 
 ## Changelog
+
+### v1.3.3
+- **Security improvements**: general hardening of the core security architecture
 
 ### v1.3.2
 - **Thread & buffer optimization**: internal thread management and memory buffers enhanced for maximum stability under heavy load
