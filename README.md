@@ -1,7 +1,10 @@
 # OCU CoreSDK — On-Chain-Unlock
-**v1.3.3** — Blockchain-based physical access control
+**v1.3.4** — Blockchain-based physical access control
 
 ## Changelog
+
+### v1.3.4
+- **Fix**: rpc offline state handling and minor fixes
 
 ### v1.3.3
 - **Security improvements**: general hardening of the core security architecture
