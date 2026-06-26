@@ -1,5 +1,5 @@
 /**
- * CoreSDK.h  —  On-Chain Unlock · Core Library  v1.3.4
+ * CoreSDK.h  —  On-Chain Unlock · Core Library  v1.3.5
  * -------------------------------------------------------
  * Single public header. The integrator includes only this file.
  * All internals (Logic, Storage, SecureVault, Hardware, SessionManager)
@@ -37,6 +37,9 @@
  *   TT (2 hex): 00=GUEST 01=GUEST+redirect 02=ADMIN 03=ADMIN+redirect 04=NONE
  *   Same payload used for QR image, NFC NDEF record, and DeepLink.
  *
+ *  WHAT'S NEW IN v1.3.5: 
+ *  - Optimization: reduced logging frequency for specific security events to prevent log file bloat
+ * 
  *  WHAT'S NEW IN v1.3.4: 
  *  - Fix: rpc offline state handling and minor fixes
  * 
